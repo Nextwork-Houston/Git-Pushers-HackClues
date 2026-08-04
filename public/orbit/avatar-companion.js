@@ -26,6 +26,12 @@
     acrobatics: "./orbit-actions-acrobatics.png",
     entertainment: "./orbit-actions-entertainment.png",
   };
+  const PINK_SHEETS = {
+    base: "./orbit-spritesheet-pink.png",
+    emotions: "./orbit-actions-emotions-pink.png",
+    acrobatics: "./orbit-actions-acrobatics-pink.png",
+    entertainment: "./orbit-actions-entertainment-pink.png",
+  };
   const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip"];
   const SKINS = {
     classic: {
@@ -47,10 +53,10 @@
       accentSoft: "#b9f4ff",
     },
     pink: {
-      label: "Neon pink",
-      filter: "hue-rotate(125deg) saturate(1.16) brightness(1.04)",
+      label: "Blush pink",
+      filter: "brightness(1.04)",
       accent: "#ff5bd6",
-      accentSoft: "#ffb5ec",
+      accentSoft: "#ffd1f1",
     },
   };
   const SKIN_NAMES = new Set(Object.keys(SKINS));
@@ -146,12 +152,20 @@
       z-index: -1;
     }
 
-    .sprite {
+    .sprite-clip {
       width: 280px;
       height: 280px;
       position: absolute;
       left: var(--sprite-offset-x, -26px);
       bottom: 0;
+      overflow: hidden;
+    }
+
+    .sprite {
+      width: 280px;
+      height: 280px;
+      position: absolute;
+      inset: 0;
       background-image: var(--sprite-image);
       background-repeat: no-repeat;
       background-size: 1120px 1120px;
@@ -286,7 +300,7 @@
     .skin-option[data-skin="classic"] .skin-swatch { background: linear-gradient(135deg, #ffcc75, #ff7a18 70%, #58616c); }
     .skin-option[data-skin="electric"] .skin-swatch { background: linear-gradient(135deg, #8bf9ff, #1677ff 70%, #263849); }
     .skin-option[data-skin="dove"] .skin-swatch { background: linear-gradient(135deg, #f1f2f4, #aeb8c2 70%, #71808e); }
-    .skin-option[data-skin="pink"] .skin-swatch { background: linear-gradient(135deg, #ffc3ef, #ff4acb 70%, #76536e); }
+    .skin-option[data-skin="pink"] .skin-swatch { background: linear-gradient(135deg, #ffe2f5, #ff7dcc 70%, #d79aba); }
     .action {
       display: grid;
       grid-template-columns: 34px 1fr auto;
@@ -637,7 +651,7 @@
           </aside>
           <div class="stage">
             <div class="aura"></div><div class="ground"></div>
-            <div class="sprite" role="img"></div>
+            <div class="sprite-clip"><div class="sprite" role="img"></div></div>
             <button class="skin-toggle" type="button" aria-label="Choose avatar color" aria-expanded="false">${icons.palette}</button>
             <div class="skin-picker" role="radiogroup" aria-label="Avatar colors">
               <div class="skin-picker-title">Choose a color</div>
@@ -763,10 +777,11 @@
       const positions = ["0px", "-280px", "-560px", "-840px"];
       const rows = ["0px", "-280px", "-560px", "-840px"];
       const animation = ANIMATIONS[this._state];
-      const sheet = this._sheets[animation.sheet] || DEFAULT_SHEETS[animation.sheet];
+      const sheetSet = this._skin === "pink" ? PINK_SHEETS : this._sheets;
+      const sheet = sheetSet[animation.sheet] || DEFAULT_SHEETS[animation.sheet];
       this.$(".sprite").style.setProperty("--frame-x", positions[this._frame]);
       this.$(".sprite").style.setProperty("--state-y", rows[animation.row]);
-      this.$(".sprite").style.setProperty("--sprite-offset-x", animation.offsetX || "0px");
+      this.$(".sprite-clip").style.setProperty("--sprite-offset-x", animation.offsetX || "0px");
       this.$(".companion").style.setProperty("--sprite-image", `url("${String(sheet).replace(/["\\]/g, "\\$&")}")`);
       this.$(".companion").dataset.state = this._state;
     }
