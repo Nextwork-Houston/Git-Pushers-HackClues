@@ -1,0 +1,37 @@
+{
+  "id": "orbit",
+  "displayName": "Orbit",
+  "description": "A neon-blue, fox-eared voice companion for conversations, backend actions, and friendly system feedback.",
+  "spriteVersionNumber": 3,
+  "spritesheetPath": "orbit-spritesheet.png",
+  "actionSheets": {
+    "emotions": "orbit-actions-emotions.png",
+    "acrobatics": "orbit-actions-acrobatics.png",
+    "entertainment": "orbit-actions-entertainment.png"
+  },
+  "grid": {
+    "columns": 4,
+    "rows": 4
+  },
+  "skins": ["classic", "electric", "dove", "pink"],
+  "defaultSkin": "electric",
+  "states": {
+    "idle": 0,
+    "listening": 1,
+    "speaking": 2,
+    "success": 3,
+    "thinking": { "sheet": "emotions", "row": 0 },
+    "crying": { "sheet": "emotions", "row": 1 },
+    "tantrum": { "sheet": "emotions", "row": 2 },
+    "lazy": { "sheet": "emotions", "row": 3 },
+    "belly": { "sheet": "acrobatics", "row": 0 },
+    "somersault": { "sheet": "acrobatics", "row": 1 },
+    "backflip": { "sheet": "acrobatics", "row": 2 },
+    "skipping": { "sheet": "acrobatics", "row": 3 },
+    "dance": { "sheet": "entertainment", "row": 0 },
+    "laugh": { "sheet": "entertainment", "row": 1 },
+    "airguitar": { "sheet": "entertainment", "row": 2 },
+    "moonwalk": { "sheet": "entertainment", "row": 3 }
+  },
+  "waitingPlaylist": ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip"]
+}
