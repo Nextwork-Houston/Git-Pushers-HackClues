@@ -1,0 +1,15 @@
+{
+  "name": "orbit-desktop-companion",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Always-available Orbit desktop companion",
+  "main": "main.js",
+  "scripts": {
+    "start": "electron .",
+    "check": "node --check main.js && node --check preload.js && node --check desktop.js"
+  },
+  "devDependencies": {
+    "electron": "^43.3.0",
+    "playwright-core": "^1.62.1"
+  }
+}

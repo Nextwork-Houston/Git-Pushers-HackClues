@@ -1,0 +1,198 @@
+# Orbit Avatar Companion
+
+Orbit is a dependency-free Web Component built to be copied into other projects. It includes 16 animated states, automatic waiting performances, a conversation window, a voice-interface event surface, and a configurable backend action menu.
+
+## Orbit on the Windows desktop
+
+The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Drag the avatar itself to move it, use the `−` and `+` controls to resize it, and click without dragging to open chat. Closing chat collapses Orbit back to the pet-only view.
+
+From the parent `little-eddy` folder, install and launch it with:
+
+```powershell
+.\install-orbit-desktop.ps1
+```
+
+The installer adds a desktop shortcut and starts Orbit with Windows. Use `-NoStartup` to create only the desktop shortcut. Right-click through Orbit's `•••` desktop menu to restart, disable always-on-top, or quit.
+
+On macOS or Linux, run `chmod +x install-orbit-desktop.sh start-orbit-desktop.sh` followed by `./install-orbit-desktop.sh`. The installer adds the appropriate login/startup entry for the operating system.
+
+For the hosted hackathon demo, `demo.html` links to `downloads/orbit-desktop-windows.zip`. Visitors extract the ZIP and double-click `install-orbit-desktop.cmd`. The included `vercel.json` serves the demo at `/` and forces the ZIP to download instead of opening in the browser.
+
+Set `conversationUrl`, the default skin, and backend menu actions in `desktop/desktop-config.json`. Speechmatics integrations can send `speechmatics.partial` and `speechmatics.final` browser events containing `detail.text`; Orbit opens chat and renders those transcripts immediately.
+
+## Preview
+
+From this folder, run:
+
+```powershell
+python -m http.server 8080
+```
+
+Then open `http://localhost:8080/demo.html`.
+
+## Add Orbit to a project
+
+Copy these files into the target project:
+
+- `avatar-companion.js`
+- `orbit-spritesheet.png`
+- `orbit-actions-emotions.png`
+- `orbit-actions-acrobatics.png`
+- `orbit-actions-entertainment.png`
+- `orbit-spritesheet-pink.png`
+- `orbit-actions-emotions-pink.png`
+- `orbit-actions-acrobatics-pink.png`
+- `orbit-actions-entertainment-pink.png`
+- `orbit.pet.json` if the project uses pet metadata
+
+```html
+<script src="/avatars/avatar-companion.js"></script>
+
+<avatar-companion
+  id="orbit"
+  name="Orbit"
+  sprite-src="/avatars/orbit-spritesheet.png"
+  emotions-src="/avatars/orbit-actions-emotions.png"
+  acrobatics-src="/avatars/orbit-actions-acrobatics.png"
+  entertainment-src="/avatars/orbit-actions-entertainment.png"
+  skin="electric"
+  skin-storage-key="my-app-orbit-skin"
+  state="idle">
+</avatar-companion>
+```
+
+## Avatar colors
+
+Orbit includes `classic`, `electric`, `dove`, and `pink` skins. Users can choose one with the palette icon, or the host application can change it directly:
+
+```js
+orbit.setSkin("dove");
+orbit.skin = "pink";
+console.log(orbit.skins);
+```
+
+Add `skin-storage-key` to remember the user's choice in local storage. Omit it when the host application manages preferences itself. Every expression, action, and waiting animation uses the active skin. Listen for `avatar-skin-change` to synchronize the selection with an account or backend profile.
+
+Classic, electric, and dove reuse the blue animation sheets with lightweight runtime color filters, so separate atlases are not required. Pink uses dedicated sheets because its light blush body and pink accents cannot be reproduced cleanly with a global CSS filter. Keep the four `*-pink.png` files beside `avatar-companion.js`.
+
+## Expressions and actions
+
+Available animations are `idle`, `listening`, `speaking`, `success`, `thinking`, `crying`, `tantrum`, `lazy`, `belly`, `somersault`, `backflip`, `skipping`, `dance`, `laugh`, `airguitar`, and `moonwalk`.
+
+```js
+orbit.playAction("dance", { duration: 3000 });
+orbit.playAction("backflip", { duration: 1800, returnTo: "success" });
+orbit.playAction("laying-on-stomach", { duration: 4000 });
+```
+
+Common aliases such as `laying`, `laying-on-stomach`, `summersault`, `summer-sault`, `back-flip`, `skip`, `dancing`, and `air-guitar` are accepted.
+
+## Waiting performances
+
+Start a rotating performance while an assistant, tool, or custom backend operation is working:
+
+```js
+orbit.startWaiting({
+  interval: 3200,
+  openChat: true,
+  actions: ["thinking", "dance", "skipping", "moonwalk", "backflip"]
+});
+
+const result = await yourBackendClient.run();
+orbit.stopWaiting({ state: "speaking" });
+orbit.addMessage(result.message, "assistant");
+```
+
+Configured action-menu requests automatically start and stop the waiting performance. Set `animateWhileWaiting: false` on an action to disable it, or provide a per-action `waitingActions` array.
+
+## Conversation API
+
+```js
+const orbit = document.querySelector("#orbit");
+
+orbit.setState("listening");
+orbit.setTranscript("Partial words from Speechmatics...");
+orbit.setTranscript("The final user transcript.", { final: true, role: "user" });
+
+orbit.setState("speaking");
+orbit.addMessage("The assistant response appears here.", "assistant");
+orbit.setState("idle");
+```
+
+For a Speechmatics client or any other transcription source, translate its events into the methods above. If your integration already exposes an `EventTarget`, `bindSpeechSource` can wire it directly:
+
+```js
+orbit.bindSpeechSource(speechEvents, {
+  startEvent: "speech.start",
+  partialEvent: "speech.partial",
+  finalEvent: "speech.final",
+  endEvent: "speech.end",
+  getText: (event) => event.detail.transcript,
+});
+```
+
+The microphone button emits `speech-toggle-request`. Start or stop the Speechmatics session in that listener, then call `setState` as the session changes.
+
+## Backend action menu
+
+```js
+orbit.actions = [
+  {
+    id: "health",
+    label: "System health",
+    icon: "pulse",
+    url: "https://api.example.com/system/health",
+    method: "GET"
+  },
+  {
+    id: "workflow",
+    label: "Run workflow",
+    icon: "spark",
+    url: "/api/workflows/daily",
+    method: "POST",
+    body: { source: "orbit" },
+    waitingActions: ["thinking", "airguitar", "moonwalk"]
+  }
+];
+```
+
+Clicking an action calls its URL with `fetch`. Available built-in icons are `pulse`, `memory`, `spark`, and `link`. Listen for `avatar-action-result` or `avatar-action-error` to update the host application.
+
+To take over the request yourself, cancel `avatar-action`:
+
+```js
+orbit.addEventListener("avatar-action", async (event) => {
+  event.preventDefault();
+  orbit.startWaiting();
+  try {
+    await yourBackendClient.run(event.detail.action.id);
+    orbit.stopWaiting({ state: "success" });
+  } catch (error) {
+    orbit.stopWaiting({ state: null });
+    orbit.playAction("tantrum", { duration: 1800 });
+  }
+});
+```
+
+## Events
+
+- `speech-toggle-request`: the user clicked the voice button.
+- `avatar-action`: an action was selected; cancel it to bypass built-in `fetch`.
+- `avatar-action-result`: the backend returned a successful response.
+- `avatar-action-error`: the backend request failed.
+- `avatar-animation`: a new expression or action started.
+- `avatar-waiting-start`: the waiting performance began.
+- `avatar-waiting-stop`: the waiting performance ended.
+
+## Theme
+
+Override component variables from the host project:
+
+```css
+avatar-companion {
+  --avatar-accent: #20f6ff;
+  --avatar-accent-soft: #8bf9ff;
+  --avatar-ink: #071524;
+  --avatar-surface: rgba(239, 247, 255, 0.94);
+}
+```
