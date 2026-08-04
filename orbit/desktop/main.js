@@ -6,8 +6,11 @@ const path = require("node:path");
 
 const COMPACT_SIZE = { width: 320, height: 350 };
 const EXPANDED_SIZE = { width: 710, height: 350 };
+const PANEL_SIZE = { width: 550, height: 350 };
+const FULL_SIZE = { width: 940, height: 350 };
 let orbitWindow;
 let expanded = false;
+let panelOpen = false;
 let scale = 1;
 let dragSession;
 const hasSingleInstanceLock = app.requestSingleInstanceLock();
@@ -24,7 +27,7 @@ function getConfig() {
 }
 
 function scaledSize() {
-  const size = expanded ? EXPANDED_SIZE : COMPACT_SIZE;
+  const size = expanded && panelOpen ? FULL_SIZE : expanded ? EXPANDED_SIZE : panelOpen ? PANEL_SIZE : COMPACT_SIZE;
   return {
     width: Math.round(size.width * scale),
     height: Math.round(size.height * scale),
@@ -55,6 +58,11 @@ function resizeWindow() {
 
 function setExpanded(nextExpanded) {
   expanded = nextExpanded;
+  resizeWindow();
+}
+
+function setPanelOpen(nextPanelOpen) {
+  panelOpen = nextPanelOpen;
   resizeWindow();
 }
 
@@ -91,6 +99,7 @@ function createWindow() {
 }
 
 ipcMain.on("orbit:set-expanded", (_event, expanded) => setExpanded(Boolean(expanded)));
+ipcMain.on("orbit:set-panel-open", (_event, open) => setPanelOpen(Boolean(open)));
 ipcMain.on("orbit:set-scale", (_event, nextScale) => setScale(nextScale));
 ipcMain.on("orbit:set-ignore-mouse", (_event, ignore) => {
   if (orbitWindow) orbitWindow.setIgnoreMouseEvents(Boolean(ignore), { forward: true });

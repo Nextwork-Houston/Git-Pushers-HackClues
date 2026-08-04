@@ -109,6 +109,10 @@ orbit.addEventListener("avatar-chat-change", (event) => {
   if (!event.detail.open) stopListening();
 });
 
+orbit.addEventListener("avatar-menu-change", (event) => {
+  window.orbitDesktop.setPanelOpen(event.detail.open);
+});
+
 orbit.addEventListener("speech-toggle-request", (event) => {
   if (!event.detail.active) stopListening();
 });

@@ -39,10 +39,8 @@ Copy these files into the target project:
 - `orbit-actions-emotions.png`
 - `orbit-actions-acrobatics.png`
 - `orbit-actions-entertainment.png`
-- `orbit-spritesheet-pink.png`
-- `orbit-actions-emotions-pink.png`
-- `orbit-actions-acrobatics-pink.png`
-- `orbit-actions-entertainment-pink.png`
+- `orbit-actions-love.png`
+- The matching `*-orange.png`, `*-dove.png`, and `*-pink.png` variants for every sheet above
 - `orbit.pet.json` if the project uses pet metadata
 
 ```html
@@ -55,6 +53,7 @@ Copy these files into the target project:
   emotions-src="/avatars/orbit-actions-emotions.png"
   acrobatics-src="/avatars/orbit-actions-acrobatics.png"
   entertainment-src="/avatars/orbit-actions-entertainment.png"
+  love-src="/avatars/orbit-actions-love.png"
   skin="electric"
   skin-storage-key="my-app-orbit-skin"
   state="idle">
@@ -73,19 +72,21 @@ console.log(orbit.skins);
 
 Add `skin-storage-key` to remember the user's choice in local storage. Omit it when the host application manages preferences itself. Every expression, action, and waiting animation uses the active skin. Listen for `avatar-skin-change` to synchronize the selection with an account or backend profile.
 
-Classic, electric, and dove reuse the blue animation sheets with lightweight runtime color filters, so separate atlases are not required. Pink uses dedicated sheets because its light blush body and pink accents cannot be reproduced cleanly with a global CSS filter. Keep the four `*-pink.png` files beside `avatar-companion.js`.
+Orbit now uses dedicated animation sheets for orange, blue, dove, and pink. This keeps the polished rounded 3D-toy materials consistent with the approved comparison artwork instead of approximating colors with global CSS filters. Keep every `*-orange.png`, `*-dove.png`, and `*-pink.png` sheet beside `avatar-companion.js`; the unsuffixed files are the electric-blue masters.
 
 ## Expressions and actions
 
-Available animations are `idle`, `listening`, `speaking`, `success`, `thinking`, `crying`, `tantrum`, `lazy`, `belly`, `somersault`, `backflip`, `skipping`, `dance`, `laugh`, `airguitar`, and `moonwalk`.
+Available animations are `idle`, `listening`, `speaking`, `success`, `thinking`, `crying`, `tantrum`, `lazy`, `belly`, `somersault`, `backflip`, `skipping`, `dance`, `laugh`, `airguitar`, `moonwalk`, `hearteyes`, `kiss`, `hearthug`, and `lovestruck`.
 
 ```js
 orbit.playAction("dance", { duration: 3000 });
 orbit.playAction("backflip", { duration: 1800, returnTo: "success" });
 orbit.playAction("laying-on-stomach", { duration: 4000 });
+orbit.playAction("heart-eyes", { duration: 2600 });
+orbit.playAction("blowing-kiss", { duration: 2600 });
 ```
 
-Common aliases such as `laying`, `laying-on-stomach`, `summersault`, `summer-sault`, `back-flip`, `skip`, `dancing`, and `air-guitar` are accepted.
+Common aliases such as `laying`, `laying-on-stomach`, `summersault`, `summer-sault`, `back-flip`, `skip`, `dancing`, `air-guitar`, `heart-eyes`, `heart-hug`, and `blowing-kiss` are accepted.
 
 ## Waiting performances
 

@@ -18,6 +18,10 @@
     laugh: { sheet: "entertainment", row: 1, delay: 300, label: "Laughing" },
     airguitar: { sheet: "entertainment", row: 2, delay: 240, label: "Rocking out" },
     moonwalk: { sheet: "entertainment", row: 3, delay: 270, label: "Moonwalking" },
+    hearteyes: { sheet: "love", row: 0, delay: 360, label: "Heart eyes" },
+    kiss: { sheet: "love", row: 1, delay: 390, label: "Blowing kisses" },
+    hearthug: { sheet: "love", row: 2, delay: 430, label: "Big heart hug" },
+    lovestruck: { sheet: "love", row: 3, delay: 380, label: "Feeling loved" },
   };
   const STATES = new Set(Object.keys(ANIMATIONS));
   const DEFAULT_SHEETS = {
@@ -25,18 +29,36 @@
     emotions: "./orbit-actions-emotions.png",
     acrobatics: "./orbit-actions-acrobatics.png",
     entertainment: "./orbit-actions-entertainment.png",
+    love: "./orbit-actions-love.png",
   };
-  const PINK_SHEETS = {
-    base: "./orbit-spritesheet-pink.png",
-    emotions: "./orbit-actions-emotions-pink.png",
-    acrobatics: "./orbit-actions-acrobatics-pink.png",
-    entertainment: "./orbit-actions-entertainment-pink.png",
+  const SKIN_SHEETS = {
+    classic: {
+      base: "./orbit-spritesheet-orange.png",
+      emotions: "./orbit-actions-emotions-orange.png",
+      acrobatics: "./orbit-actions-acrobatics-orange.png",
+      entertainment: "./orbit-actions-entertainment-orange.png",
+      love: "./orbit-actions-love-orange.png",
+    },
+    dove: {
+      base: "./orbit-spritesheet-dove.png",
+      emotions: "./orbit-actions-emotions-dove.png",
+      acrobatics: "./orbit-actions-acrobatics-dove.png",
+      entertainment: "./orbit-actions-entertainment-dove.png",
+      love: "./orbit-actions-love-dove.png",
+    },
+    pink: {
+      base: "./orbit-spritesheet-pink.png",
+      emotions: "./orbit-actions-emotions-pink.png",
+      acrobatics: "./orbit-actions-acrobatics-pink.png",
+      entertainment: "./orbit-actions-entertainment-pink.png",
+      love: "./orbit-actions-love-pink.png",
+    },
   };
-  const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip"];
+  const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"];
   const SKINS = {
     classic: {
       label: "Classic orange",
-      filter: "hue-rotate(200deg) saturate(1.12)",
+      filter: "brightness(1)",
       accent: "#ff9a24",
       accentSoft: "#ffd08a",
     },
@@ -48,7 +70,7 @@
     },
     dove: {
       label: "Dove gray",
-      filter: "brightness(1.34) contrast(0.86) saturate(0.78)",
+      filter: "brightness(1)",
       accent: "#58dff6",
       accentSoft: "#b9f4ff",
     },
@@ -70,6 +92,9 @@
     skip: "skipping",
     dancing: "dance",
     "air-guitar": "airguitar",
+    "heart-eyes": "hearteyes",
+    "heart-hug": "hearthug",
+    "blowing-kiss": "kiss",
   };
   const normalizeAnimationName = (name) => {
     const candidate = String(name || "idle").toLowerCase();
@@ -116,6 +141,8 @@
       padding: 14px;
       position: relative;
     }
+
+    .companion:has(.action-menu[data-open="true"]) { padding-right: 246px; }
 
     .stage {
       width: 280px;
@@ -235,7 +262,7 @@
     .action-menu {
       position: absolute;
       top: 72px;
-      right: 10px;
+      right: -224px;
       display: grid;
       gap: 8px;
       width: 216px;
@@ -247,8 +274,8 @@
       backdrop-filter: blur(18px);
       opacity: 0;
       visibility: hidden;
-      transform: translateY(-8px) scale(0.96);
-      transform-origin: top right;
+      transform: translateX(-8px) scale(0.96);
+      transform-origin: top left;
       pointer-events: none;
       transition: opacity 160ms ease, transform 160ms ease, visibility 0s linear 160ms;
       z-index: 5;
@@ -391,7 +418,9 @@
 
     @media (max-width: 680px) {
       .companion { flex-direction: column-reverse; align-items: center; gap: 4px; padding: 0; }
+      .companion:has(.action-menu[data-open="true"]) { padding-right: 0; }
       .chat { border-radius: 22px 22px 22px 8px; transform: translateY(10px) scale(0.97); }
+      .action-menu { right: 10px; transform: translateY(-8px) scale(0.96); transform-origin: top right; }
     }
 
     @media (prefers-reduced-motion: reduce) {
@@ -401,7 +430,7 @@
 
   class AvatarCompanion extends HTMLElement {
     static get observedAttributes() {
-      return ["name", "sprite-src", "emotions-src", "acrobatics-src", "entertainment-src", "state", "skin", "chat-open", "menu-open", "skin-menu-open"];
+      return ["name", "sprite-src", "emotions-src", "acrobatics-src", "entertainment-src", "love-src", "state", "skin", "chat-open", "menu-open", "skin-menu-open"];
     }
 
     constructor() {
@@ -554,11 +583,15 @@
       const next = typeof force === "boolean" ? force : !this.hasAttribute("menu-open");
       if (next) this.removeAttribute("skin-menu-open");
       this.toggleAttribute("menu-open", next);
+      this.dispatchEvent(new CustomEvent("avatar-menu-change", { detail: { open: next }, bubbles: true, composed: true }));
     }
 
     toggleSkinMenu(force) {
       const next = typeof force === "boolean" ? force : !this.hasAttribute("skin-menu-open");
-      if (next) this.removeAttribute("menu-open");
+      if (next && this.hasAttribute("menu-open")) {
+        this.removeAttribute("menu-open");
+        this.dispatchEvent(new CustomEvent("avatar-menu-change", { detail: { open: false }, bubbles: true, composed: true }));
+      }
       this.toggleAttribute("skin-menu-open", next);
     }
 
@@ -704,6 +737,7 @@
         emotions: this.getAttribute("emotions-src") || DEFAULT_SHEETS.emotions,
         acrobatics: this.getAttribute("acrobatics-src") || DEFAULT_SHEETS.acrobatics,
         entertainment: this.getAttribute("entertainment-src") || DEFAULT_SHEETS.entertainment,
+        love: this.getAttribute("love-src") || DEFAULT_SHEETS.love,
       };
       this.$(".pet-name").textContent = name;
       this.$(".sprite").setAttribute("aria-label", `${name}, ${this._state}`);
@@ -777,7 +811,7 @@
       const positions = ["0px", "-280px", "-560px", "-840px"];
       const rows = ["0px", "-280px", "-560px", "-840px"];
       const animation = ANIMATIONS[this._state];
-      const sheetSet = this._skin === "pink" ? PINK_SHEETS : this._sheets;
+      const sheetSet = SKIN_SHEETS[this._skin] || this._sheets;
       const sheet = sheetSet[animation.sheet] || DEFAULT_SHEETS[animation.sheet];
       this.$(".sprite").style.setProperty("--frame-x", positions[this._frame]);
       this.$(".sprite").style.setProperty("--state-y", rows[animation.row]);
