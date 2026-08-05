@@ -48,7 +48,6 @@ Copy these files into the target project:
 
 <avatar-companion
   id="orbit"
-  name="Orbit"
   sprite-src="/avatars/orbit-spritesheet.png"
   emotions-src="/avatars/orbit-actions-emotions.png"
   acrobatics-src="/avatars/orbit-actions-acrobatics.png"
@@ -62,7 +61,7 @@ Copy these files into the target project:
 
 ## Avatar colors
 
-Orbit includes `classic`, `electric`, `dove`, and `pink` skins. Users can choose one with the palette icon, or the host application can change it directly:
+The four avatars are **Cinder** (`classic` orange), **Orbit** (`electric` blue), **Nimbus** (`dove` gray), and **Roisin** (`pink`). Users can choose one with the palette icon, or the host application can change it directly:
 
 ```js
 orbit.setSkin("dove");
@@ -71,6 +70,8 @@ console.log(orbit.skins);
 ```
 
 Add `skin-storage-key` to remember the user's choice in local storage. Omit it when the host application manages preferences itself. Every expression, action, and waiting animation uses the active skin. Listen for `avatar-skin-change` to synchronize the selection with an account or backend profile.
+
+The chat header automatically uses the selected avatar's name. Add a `name` attribute only when a host project needs to override the built-in names.
 
 Orbit now uses dedicated animation sheets for orange, blue, dove, and pink. This keeps the polished rounded 3D-toy materials consistent with the approved comparison artwork instead of approximating colors with global CSS filters. Keep every `*-orange.png`, `*-dove.png`, and `*-pink.png` sheet beside `avatar-companion.js`; the unsuffixed files are the electric-blue masters.
 

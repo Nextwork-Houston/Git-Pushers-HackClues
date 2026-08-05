@@ -57,25 +57,29 @@
   const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"];
   const SKINS = {
     classic: {
-      label: "Classic orange",
+      name: "Cinder",
+      label: "Cinder · Classic orange",
       filter: "brightness(1)",
       accent: "#ff9a24",
       accentSoft: "#ffd08a",
     },
     electric: {
-      label: "Electric blue",
+      name: "Orbit",
+      label: "Orbit · Electric blue",
       filter: "brightness(1)",
       accent: "#20f6ff",
       accentSoft: "#8bf9ff",
     },
     dove: {
-      label: "Dove gray",
+      name: "Nimbus",
+      label: "Nimbus · Dove gray",
       filter: "brightness(1)",
       accent: "#58dff6",
       accentSoft: "#b9f4ff",
     },
     pink: {
-      label: "Blush pink",
+      name: "Roisin",
+      label: "Roisin · Blush pink",
       filter: "brightness(1.04)",
       accent: "#ff5bd6",
       accentSoft: "#ffd1f1",
@@ -730,8 +734,8 @@
         this._frame = 0;
         this._startAnimation();
       }
-      const name = this.getAttribute("name") || "Orbit";
       this._skin = normalizeSkinName(this.getAttribute("skin"));
+      const name = this.getAttribute("name") || SKINS[this._skin].name;
       this._sheets = {
         base: this.getAttribute("sprite-src") || DEFAULT_SHEETS.base,
         emotions: this.getAttribute("emotions-src") || DEFAULT_SHEETS.emotions,

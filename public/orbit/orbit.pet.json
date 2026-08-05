@@ -2,18 +2,25 @@
   "id": "orbit",
   "displayName": "Orbit",
   "description": "A neon-blue, fox-eared voice companion for conversations, backend actions, and friendly system feedback.",
-  "spriteVersionNumber": 3,
+  "spriteVersionNumber": 4,
   "spritesheetPath": "orbit-spritesheet.png",
   "actionSheets": {
     "emotions": "orbit-actions-emotions.png",
     "acrobatics": "orbit-actions-acrobatics.png",
-    "entertainment": "orbit-actions-entertainment.png"
+    "entertainment": "orbit-actions-entertainment.png",
+    "love": "orbit-actions-love.png"
   },
   "grid": {
     "columns": 4,
     "rows": 4
   },
   "skins": ["classic", "electric", "dove", "pink"],
+  "skinNames": {
+    "classic": "Cinder",
+    "electric": "Orbit",
+    "dove": "Nimbus",
+    "pink": "Roisin"
+  },
   "defaultSkin": "electric",
   "states": {
     "idle": 0,
@@ -31,7 +38,11 @@
     "dance": { "sheet": "entertainment", "row": 0 },
     "laugh": { "sheet": "entertainment", "row": 1 },
     "airguitar": { "sheet": "entertainment", "row": 2 },
-    "moonwalk": { "sheet": "entertainment", "row": 3 }
+    "moonwalk": { "sheet": "entertainment", "row": 3 },
+    "hearteyes": { "sheet": "love", "row": 0 },
+    "kiss": { "sheet": "love", "row": 1 },
+    "hearthug": { "sheet": "love", "row": 2 },
+    "lovestruck": { "sheet": "love", "row": 3 }
   },
-  "waitingPlaylist": ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip"]
+  "waitingPlaylist": ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"]
 }
