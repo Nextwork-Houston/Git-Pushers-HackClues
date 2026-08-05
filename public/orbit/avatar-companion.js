@@ -169,7 +169,7 @@
       border: var(--avatar-aura-border, 0 solid transparent);
       box-shadow: var(--avatar-aura-shadow, none);
       filter: blur(2px);
-      opacity: var(--avatar-aura-opacity, 0.55);
+      opacity: 0;
       transform: scale(0.9);
       transition: transform 320ms ease, opacity 320ms ease;
       z-index: -2;
@@ -230,11 +230,12 @@
       cursor: pointer;
     }
 
-    .companion[data-state="listening"] .sprite { filter: var(--avatar-skin-filter, none) var(--avatar-outline-glow, drop-shadow(0 0 0 transparent)) drop-shadow(0 0 18px color-mix(in srgb, var(--avatar-accent) 48%, transparent)); }
-    .companion[data-state="speaking"] .aura,
-    .companion[data-state="listening"] .aura { transform: scale(1.08); }
-    .companion[data-state="success"] .aura { transform: scale(1.2); opacity: 0.95; }
-    .companion[data-busy="true"] .aura { transform: scale(1.08); opacity: 1; }
+    .companion[data-state="listening"] .sprite,
+    .companion[data-state="speaking"] .sprite,
+    .companion[data-state="success"] .sprite,
+    .companion[data-busy="true"] .sprite {
+      filter: var(--avatar-skin-filter, none) var(--avatar-active-glow, drop-shadow(0 0 5px color-mix(in srgb, var(--avatar-accent) 88%, transparent)) drop-shadow(0 0 16px color-mix(in srgb, var(--avatar-accent) 58%, transparent))) drop-shadow(0 16px 12px rgba(5, 27, 49, 0.16));
+    }
     .companion[data-state="tantrum"] .stage { animation: tantrumShake 180ms ease-in-out infinite alternate; }
 
     @keyframes tantrumShake {
@@ -317,7 +318,12 @@
     .size-action:hover { background: rgba(22, 119, 255, .16); }
     .size-control-copy { color: var(--avatar-muted); font-size: 12px; font-weight: 750; text-align: center; }
     .desktop-app-menu { margin-top: 3px; border-top: 1px solid rgba(57, 87, 118, .12); border-radius: 0 0 12px 12px; }
-    .backend-actions:empty { display: none; }
+    .backend-actions { order: -1; }
+    .settings-disclosure { display: none; border-top: 1px solid rgba(57, 87, 118, .12); }
+    .settings-disclosure summary { padding: 10px 5px 4px; color: var(--avatar-muted); cursor: pointer; font-size: 11px; font-weight: 850; letter-spacing: .06em; list-style-position: inside; text-transform: uppercase; }
+    .settings-disclosure[open] summary { color: var(--avatar-ink); }
+    .settings-disclosure .desktop-menu-controls { padding-top: 4px; }
+    .empty-actions { padding: 10px; color: var(--avatar-muted); font-size: 13px; font-weight: 750; }
 
     .skin-picker {
       position: absolute;
@@ -464,9 +470,10 @@
     :host([desktop]) .companion:has(.action-menu[data-open="true"]) { padding-right: 246px; }
     :host([desktop]) .skin-toggle { display: none; }
     :host([desktop]) .menu-toggle { top: auto; right: auto; bottom: 24px; left: 12px; }
-    :host([desktop]) .action-menu { top: 0; right: -224px; max-height: 300px; overflow-y: auto; transform: translateX(-8px) scale(0.96); transform-origin: top left; }
+    :host([desktop]) .action-menu { top: auto; right: -224px; bottom: 24px; max-height: 300px; overflow-y: auto; transform: translateX(-8px) scale(0.96); transform-origin: bottom left; }
+    :host([desktop]) .settings-disclosure { display: block; }
     :host([desktop]) .desktop-menu-controls { display: grid; gap: 6px; }
-    :host([desktop]) .backend-actions:not(:empty) { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(57, 87, 118, .12); }
+    :host([desktop]) .backend-actions:not(:empty) { padding-bottom: 5px; }
     :host([desktop]) .action-menu[data-open="true"],
     :host([desktop]) .chat[data-open="true"] { transform: none; }
 
@@ -740,18 +747,21 @@
             </div>
             <button class="menu-toggle" type="button" aria-label="Open avatar actions" aria-expanded="false">${icons.menu}</button>
             <div class="action-menu" role="menu">
-              <div class="desktop-menu-controls">
-                <div class="desktop-menu-label">Avatar size</div>
-                <div class="size-control-row">
-                  <button class="size-action" type="button" data-size-step="-1" aria-label="Make avatar smaller">−</button>
-                  <span class="size-control-copy">Resize</span>
-                  <button class="size-action" type="button" data-size-step="1" aria-label="Make avatar larger">+</button>
-                </div>
-                <div class="desktop-menu-label">Choose avatar</div>
-                ${Object.entries(SKINS).map(([name, skin]) => `<button class="skin-option" type="button" role="radio" data-skin="${name}" aria-checked="false"><span class="skin-swatch" aria-hidden="true"></span><span>${skin.name}</span></button>`).join("")}
-                <button class="action desktop-app-menu" type="button"><span class="action-icon">${icons.menu}</span><span class="action-label">Desktop options</span><span class="action-arrow">›</span></button>
-              </div>
               <div class="backend-actions"></div>
+              <details class="settings-disclosure">
+                <summary>Avatar settings</summary>
+                <div class="desktop-menu-controls">
+                  <div class="desktop-menu-label">Avatar size</div>
+                  <div class="size-control-row">
+                    <button class="size-action" type="button" data-size-step="-1" aria-label="Make avatar smaller">−</button>
+                    <span class="size-control-copy">Resize</span>
+                    <button class="size-action" type="button" data-size-step="1" aria-label="Make avatar larger">+</button>
+                  </div>
+                  <div class="desktop-menu-label">Choose avatar</div>
+                  ${Object.entries(SKINS).map(([name, skin]) => `<button class="skin-option" type="button" role="radio" data-skin="${name}" aria-checked="false"><span class="skin-swatch" aria-hidden="true"></span><span>${skin.name}</span></button>`).join("")}
+                  <button class="action desktop-app-menu" type="button"><span class="action-icon">${icons.menu}</span><span class="action-label">Desktop options</span><span class="action-arrow">›</span></button>
+                </div>
+              </details>
             </div>
             <button class="speech-toggle" type="button" aria-label="Start voice conversation" aria-pressed="false">${icons.mic}</button>
           </div>
@@ -961,8 +971,7 @@
       });
       if (!this._actions.length) {
         const empty = document.createElement("div");
-        empty.className = "action-label";
-        empty.style.padding = "10px";
+        empty.className = "empty-actions";
         empty.textContent = "No actions configured";
         menu.append(empty);
       }
