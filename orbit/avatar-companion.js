@@ -2,10 +2,10 @@
   "use strict";
 
   const ANIMATIONS = {
-    idle: { sheet: "base", row: 0, delay: 780, label: "Ready", offsetX: "-26px" },
-    listening: { sheet: "base", row: 1, delay: 430, label: "Listening", offsetX: "-26px" },
-    speaking: { sheet: "base", row: 2, delay: 260, label: "Speaking", offsetX: "-26px" },
-    success: { sheet: "base", row: 3, delay: 220, label: "Complete", offsetX: "-26px" },
+    idle: { sheet: "base", row: 0, delay: 780, label: "Ready" },
+    listening: { sheet: "base", row: 1, delay: 430, label: "Listening" },
+    speaking: { sheet: "base", row: 2, delay: 260, label: "Speaking" },
+    success: { sheet: "base", row: 3, delay: 220, label: "Complete" },
     thinking: { sheet: "emotions", row: 0, delay: 520, label: "Thinking" },
     crying: { sheet: "emotions", row: 1, delay: 420, label: "Emotional" },
     tantrum: { sheet: "emotions", row: 2, delay: 190, label: "Having a moment" },
@@ -158,12 +158,14 @@
 
     .aura {
       position: absolute;
-      width: 224px;
-      height: 224px;
-      left: 28px;
-      bottom: 18px;
+      width: var(--avatar-aura-size, 224px);
+      height: var(--avatar-aura-size, 224px);
+      left: calc((280px - var(--avatar-aura-size, 224px)) / 2);
+      bottom: var(--avatar-aura-bottom, 18px);
       border-radius: 50%;
       background: radial-gradient(circle, rgba(32, 246, 255, 0.3), rgba(22, 119, 255, 0.09) 52%, transparent 72%);
+      border: var(--avatar-aura-border, 0 solid transparent);
+      box-shadow: var(--avatar-aura-shadow, none);
       filter: blur(2px);
       opacity: var(--avatar-aura-opacity, 0.55);
       transform: scale(0.9);
@@ -426,6 +428,13 @@
       .chat { border-radius: 22px 22px 22px 8px; transform: translateY(10px) scale(0.97); }
       .action-menu { right: 10px; transform: translateY(-8px) scale(0.96); transform-origin: top right; }
     }
+
+    :host([desktop]) .companion { flex-direction: row; align-items: flex-end; gap: 18px; padding: 14px; }
+    :host([desktop]) .chat { border-radius: 24px 24px 8px 24px; transform: translateX(12px) scale(0.96); }
+    :host([desktop]) .companion:has(.action-menu[data-open="true"]) { padding-right: 246px; }
+    :host([desktop]) .action-menu { right: -224px; transform: translateX(-8px) scale(0.96); transform-origin: top left; }
+    :host([desktop]) .action-menu[data-open="true"],
+    :host([desktop]) .chat[data-open="true"] { transform: none; }
 
     @media (prefers-reduced-motion: reduce) {
       *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }

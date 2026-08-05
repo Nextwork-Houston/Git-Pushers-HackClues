@@ -26,6 +26,35 @@ function getConfig() {
   }
 }
 
+function positionStatePath() {
+  return path.join(app.getPath("userData"), "orbit-window-state.json");
+}
+
+function loadSavedPosition() {
+  try {
+    const saved = JSON.parse(fs.readFileSync(positionStatePath(), "utf8"));
+    return Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : null;
+  } catch {
+    return null;
+  }
+}
+
+function saveWindowPosition() {
+  if (!orbitWindow || orbitWindow.isDestroyed()) return;
+  const { x, y } = orbitWindow.getBounds();
+  try { fs.writeFileSync(positionStatePath(), JSON.stringify({ x, y }), "utf8"); }
+  catch {}
+}
+
+function clampPosition(x, y, size) {
+  const display = screen.getDisplayNearestPoint({ x, y });
+  const { workArea } = display;
+  return {
+    x: Math.min(workArea.x + workArea.width - size.width, Math.max(workArea.x, Math.round(x))),
+    y: Math.min(workArea.y + workArea.height - size.height, Math.max(workArea.y, Math.round(y))),
+  };
+}
+
 function scaledSize() {
   const size = expanded && panelOpen ? FULL_SIZE : expanded ? EXPANDED_SIZE : panelOpen ? PANEL_SIZE : COMPACT_SIZE;
   return {
@@ -37,6 +66,8 @@ function scaledSize() {
 function getInitialBounds() {
   const workArea = screen.getPrimaryDisplay().workArea;
   const size = scaledSize();
+  const saved = loadSavedPosition();
+  if (saved) return { ...size, ...clampPosition(saved.x, saved.y, size) };
   return {
     ...size,
     x: workArea.x + workArea.width - size.width - 18,
@@ -49,11 +80,12 @@ function resizeWindow() {
   const current = orbitWindow.getBounds();
   const next = scaledSize();
   orbitWindow.webContents.setZoomFactor(scale);
-  orbitWindow.setBounds({
-    ...next,
-    x: current.x + current.width - next.width,
-    y: current.y + current.height - next.height,
-  }, true);
+  const position = clampPosition(
+    current.x + current.width - next.width,
+    current.y + current.height - next.height,
+    next,
+  );
+  orbitWindow.setBounds({ ...next, ...position }, true);
 }
 
 function setExpanded(nextExpanded) {
@@ -110,12 +142,18 @@ ipcMain.on("orbit:drag-start", (_event, point) => {
 });
 ipcMain.on("orbit:drag-move", (_event, point) => {
   if (!orbitWindow || !dragSession || !point) return;
-  orbitWindow.setPosition(
-    Math.round(dragSession.bounds.x + point.x - dragSession.point.x),
-    Math.round(dragSession.bounds.y + point.y - dragSession.point.y),
+  const size = orbitWindow.getBounds();
+  const position = clampPosition(
+    dragSession.bounds.x + point.x - dragSession.point.x,
+    dragSession.bounds.y + point.y - dragSession.point.y,
+    size,
   );
+  orbitWindow.setPosition(position.x, position.y);
 });
-ipcMain.on("orbit:drag-end", () => { dragSession = null; });
+ipcMain.on("orbit:drag-end", () => {
+  dragSession = null;
+  saveWindowPosition();
+});
 ipcMain.on("orbit:quit", () => app.quit());
 ipcMain.handle("orbit:get-config", () => getConfig());
 ipcMain.on("orbit:show-menu", () => {

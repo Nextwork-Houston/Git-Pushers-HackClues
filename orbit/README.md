@@ -1,10 +1,10 @@
 # Orbit Avatar Companion
 
-Orbit is a dependency-free Web Component built to be copied into other projects. It includes 16 animated states, automatic waiting performances, a conversation window, a voice-interface event surface, and a configurable backend action menu.
+Orbit is a dependency-free Web Component built to be copied into other projects. It includes 20 animated states, automatic waiting performances, a conversation window, a voice-interface event surface, and a configurable backend action menu.
 
 ## Orbit on the Windows desktop
 
-The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Drag the avatar itself to move it, use the `−` and `+` controls to resize it, and click without dragging to open chat. Closing chat collapses Orbit back to the pet-only view.
+The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Its permanent neon aura defines the interactive boundary, so transparent corners remain click-through. Drag the avatar itself to move it; Orbit animates while moving and remembers its position across restarts. Use the `−` and `+` controls to resize it, and click without dragging to open chat. Closing chat collapses Orbit back to the pet-only view.
 
 From the parent `little-eddy` folder, install and launch it with:
 
