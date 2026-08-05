@@ -1,4 +1,5 @@
 {
+  "launchAtStartup": false,
   "skin": "electric",
   "language": "en-US",
   "browserSpeechFallback": false,

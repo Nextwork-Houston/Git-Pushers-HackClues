@@ -2,23 +2,57 @@
 
 Orbit is a dependency-free Web Component built to be copied into other projects. It includes 20 animated states, automatic waiting performances, a conversation window, a voice-interface event surface, and a configurable backend action menu.
 
-## Orbit on the Windows desktop
+## Orbit Desktop
 
-The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Its permanent neon aura defines the interactive boundary, so transparent corners remain click-through. Drag the avatar itself to move it; Orbit animates while moving and remembers its position across restarts. The selected avatar's name appears above its head. Open the bottom hamburger menu to resize, switch among Solis, Orbit, Nimbus, and Roisin, launch backend actions, or open desktop options. Click the avatar without dragging to open chat; closing chat returns to the pet-only view.
+The `desktop` folder wraps the component in a transparent, always-on-top Electron application for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Its neon aura defines the interactive boundary, so transparent corners remain click-through. Drag Orbit to move it; the application remembers position, size, selected avatar, connected agents, and conversation settings across upgrades.
 
-From the parent `little-eddy` folder, install and launch it with:
-
-```powershell
-.\install-orbit-desktop.ps1
-```
-
-The installer adds a desktop shortcut and starts Orbit with Windows. Use `-NoStartup` to create only the desktop shortcut. Right-click through Orbit's `•••` desktop menu to restart, disable always-on-top, or quit.
-
-On macOS or Linux, run `chmod +x install-orbit-desktop.sh start-orbit-desktop.sh` followed by `./install-orbit-desktop.sh`. The installer adds the appropriate login/startup entry for the operating system.
-
-For the hosted hackathon demo, `demo.html` links to `downloads/orbit-desktop-windows.zip`. Visitors extract the ZIP and double-click `install-orbit-desktop.cmd`. The included `vercel.json` serves the demo at `/` and forces the ZIP to download instead of opening in the browser.
+Orbit includes a tray menu with Show, Hide, Restart, and Quit controls. Launch at login is optional and disabled by default. Packaged defaults live in `desktop/desktop-config.json`; mutable settings and logs are stored in Electron's operating-system user-data directory rather than the installed application folder.
 
 Set `conversationUrl`, the default skin, and backend menu actions in `desktop/desktop-config.json`. Speechmatics integrations can send `speechmatics.partial` and `speechmatics.final` browser events containing `detail.text`; Orbit opens chat and renders those transcripts immediately.
+
+## Install Orbit
+
+Production installers include Electron and all Orbit assets. End users do not need Node.js, npm, VS Code, or a terminal.
+
+### Windows
+
+Download `Orbit-Setup-x64.exe`, double-click it, and complete the installer. Orbit is added to the Start Menu and can create a Desktop shortcut. It installs per user without requiring administrator privileges.
+
+### macOS
+
+Download the DMG for Intel (`Orbit-1.0.0-x64.dmg`) or Apple Silicon (`Orbit-1.0.0-arm64.dmg`), open it, and drag Orbit into Applications. Current development packages are unsigned; see `docs/BUILDING.md` for the standard security and future notarization notes.
+
+### Linux
+
+Download `Orbit-1.0.0-x86_64.AppImage`, make it executable when required, and launch it. Debian-based systems can instead install `Orbit-1.0.0-amd64.deb`.
+
+## Development
+
+```bash
+npm install
+npm run dev
+npm run check
+```
+
+Development launchers are also available:
+
+- Windows: double-click `launch-orbit.bat`, or run `launch-orbit.ps1`.
+- macOS: double-click `launch-orbit.command` after granting execute permission.
+- Linux: run `launch-orbit.sh` after granting execute permission.
+
+The launchers install missing development dependencies and then start Orbit. They are not production installers.
+
+## Building installers
+
+```bash
+npm run build
+npm run build:win
+npm run build:mac
+npm run build:linux
+npm run dist
+```
+
+Generated applications and installers appear in `release/`. Build each production package on its matching operating system. See `docs/BUILDING.md` for artifact names, application-data locations, signing status, and CI details.
 
 ## Preview
 
