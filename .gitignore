@@ -25,4 +25,5 @@ dist-ssr
 .next/*
 .vercel
 .env*
+/tmp/
 public/orbit/downloads/Orbit-Setup-*.exe
