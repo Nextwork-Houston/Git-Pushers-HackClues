@@ -24,34 +24,36 @@
     lovestruck: { sheet: "love", row: 3, delay: 380, label: "Feeling loved" },
   };
   const STATES = new Set(Object.keys(ANIMATIONS));
+  const BUNDLED_ASSET_BASE = new URL(".", document.currentScript?.src || document.baseURI);
+  const bundledAsset = (filename) => new URL(filename, BUNDLED_ASSET_BASE).href;
   const DEFAULT_SHEETS = {
-    base: "./orbit-spritesheet.png",
-    emotions: "./orbit-actions-emotions.png",
-    acrobatics: "./orbit-actions-acrobatics.png",
-    entertainment: "./orbit-actions-entertainment.png",
-    love: "./orbit-actions-love.png",
+    base: bundledAsset("orbit-spritesheet.png"),
+    emotions: bundledAsset("orbit-actions-emotions.png"),
+    acrobatics: bundledAsset("orbit-actions-acrobatics.png"),
+    entertainment: bundledAsset("orbit-actions-entertainment.png"),
+    love: bundledAsset("orbit-actions-love.png"),
   };
   const SKIN_SHEETS = {
     classic: {
-      base: "./orbit-spritesheet-orange.png",
-      emotions: "./orbit-actions-emotions-orange.png",
-      acrobatics: "./orbit-actions-acrobatics-orange.png",
-      entertainment: "./orbit-actions-entertainment-orange.png",
-      love: "./orbit-actions-love-orange.png",
+      base: bundledAsset("orbit-spritesheet-orange.png"),
+      emotions: bundledAsset("orbit-actions-emotions-orange.png"),
+      acrobatics: bundledAsset("orbit-actions-acrobatics-orange.png"),
+      entertainment: bundledAsset("orbit-actions-entertainment-orange.png"),
+      love: bundledAsset("orbit-actions-love-orange.png"),
     },
     dove: {
-      base: "./orbit-spritesheet-dove.png",
-      emotions: "./orbit-actions-emotions-dove.png",
-      acrobatics: "./orbit-actions-acrobatics-dove.png",
-      entertainment: "./orbit-actions-entertainment-dove.png",
-      love: "./orbit-actions-love-dove.png",
+      base: bundledAsset("orbit-spritesheet-dove.png"),
+      emotions: bundledAsset("orbit-actions-emotions-dove.png"),
+      acrobatics: bundledAsset("orbit-actions-acrobatics-dove.png"),
+      entertainment: bundledAsset("orbit-actions-entertainment-dove.png"),
+      love: bundledAsset("orbit-actions-love-dove.png"),
     },
     pink: {
-      base: "./orbit-spritesheet-pink.png",
-      emotions: "./orbit-actions-emotions-pink.png",
-      acrobatics: "./orbit-actions-acrobatics-pink.png",
-      entertainment: "./orbit-actions-entertainment-pink.png",
-      love: "./orbit-actions-love-pink.png",
+      base: bundledAsset("orbit-spritesheet-pink.png"),
+      emotions: bundledAsset("orbit-actions-emotions-pink.png"),
+      acrobatics: bundledAsset("orbit-actions-acrobatics-pink.png"),
+      entertainment: bundledAsset("orbit-actions-entertainment-pink.png"),
+      love: bundledAsset("orbit-actions-love-pink.png"),
     },
   };
   const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"];
