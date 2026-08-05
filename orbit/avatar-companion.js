@@ -295,6 +295,8 @@
       display: grid;
       gap: 8px;
       width: 216px;
+      max-height: min(72vh, 480px);
+      overflow-y: auto;
       padding: 10px;
       border: 1px solid rgba(57, 87, 118, 0.14);
       border-radius: 18px;
@@ -324,6 +326,18 @@
     .settings-disclosure[open] summary { color: var(--avatar-ink); }
     .settings-disclosure .desktop-menu-controls { padding-top: 4px; }
     .empty-actions { padding: 10px; color: var(--avatar-muted); font-size: 13px; font-weight: 750; }
+    .agent-builder-disclosure { border-top: 1px solid rgba(57, 87, 118, .12); }
+    .agent-builder-disclosure summary { padding: 10px 5px 6px; color: #0068ff; cursor: pointer; font-size: 11px; font-weight: 850; letter-spacing: .06em; list-style-position: inside; text-transform: uppercase; }
+    .agent-builder-disclosure[open] summary { color: var(--avatar-ink); }
+    .agent-builder-form { display: grid; gap: 8px; padding: 5px 3px 8px; }
+    .agent-field { display: grid; gap: 4px; color: var(--avatar-muted); font-size: 10px; font-weight: 800; letter-spacing: .04em; text-transform: uppercase; }
+    .agent-field input, .agent-field select { width: 100%; min-width: 0; padding: 9px 10px; border: 1px solid rgba(57, 87, 118, .16); border-radius: 10px; color: var(--avatar-ink); background: rgba(255,255,255,.78); font: 650 12px "DM Sans", sans-serif; outline: none; text-transform: none; }
+    .agent-field input:focus, .agent-field select:focus { border-color: var(--avatar-accent); box-shadow: 0 0 0 3px color-mix(in srgb, var(--avatar-accent) 14%, transparent); }
+    .connect-agent-button { padding: 10px; border: 0; border-radius: 11px; color: #fff; background: linear-gradient(135deg, #0c6fff, #00a9cf); cursor: pointer; font: 800 12px "DM Sans", sans-serif; }
+    .agent-builder-note { margin: 0; color: var(--avatar-muted); font-size: 10px; line-height: 1.45; }
+    .connected-agent-list { display: grid; gap: 5px; }
+    .connected-agent { display: grid; grid-template-columns: 1fr auto; align-items: center; gap: 6px; padding: 7px 8px; border-radius: 9px; background: rgba(22,119,255,.07); color: var(--avatar-ink); font-size: 11px; font-weight: 750; }
+    .remove-agent { width: 24px; height: 24px; border: 0; border-radius: 50%; color: #8b3555; background: rgba(255,78,139,.12); cursor: pointer; }
 
     .skin-picker {
       position: absolute;
@@ -484,7 +498,7 @@
 
   class AvatarCompanion extends HTMLElement {
     static get observedAttributes() {
-      return ["name", "sprite-src", "emotions-src", "acrobatics-src", "entertainment-src", "love-src", "state", "skin", "chat-open", "menu-open", "skin-menu-open"];
+      return ["name", "sprite-src", "emotions-src", "acrobatics-src", "entertainment-src", "love-src", "state", "skin", "chat-open", "menu-open", "skin-menu-open", "agent-storage-key"];
     }
 
     constructor() {
@@ -497,6 +511,7 @@
       this._messages = [];
       this._liveTranscript = "";
       this._actions = [];
+      this._connectedAgents = [];
       this._speechCleanup = null;
       this._sheets = { ...DEFAULT_SHEETS };
       this._waiting = false;
@@ -510,6 +525,8 @@
       const storedSkin = this._loadStoredSkin();
       if (!this.hasAttribute("skin") && storedSkin) this.setAttribute("skin", storedSkin);
       if (!this.shadowRoot.hasChildNodes()) this._render();
+      this._loadConnectedAgents();
+      this._renderActions();
       this._syncFromAttributes();
       this._startAnimation();
     }
@@ -532,10 +549,44 @@
     get skin() { return this._skin; }
     set skin(value) { this.setSkin(value); }
     get waiting() { return this._waiting; }
-    get actions() { return [...this._actions]; }
+    get actions() { return [...this._actions, ...this._connectedAgents]; }
     set actions(value) {
       this._actions = Array.isArray(value) ? value.map((action, index) => this._normalizeAction(action, index)) : [];
       if (this.isConnected) this._renderActions();
+    }
+
+    connectAgent(config = {}) {
+      const label = String(config.label || "").trim();
+      const url = String(config.url || "").trim();
+      if (!label || !url) throw new Error("Agent name and endpoint are required.");
+      const agent = this._normalizeAction({
+        ...config,
+        id: config.id || `connected-agent-${Date.now()}`,
+        label,
+        url,
+        icon: config.icon || "spark",
+        connected: true,
+        body: config.body || {
+          source: "orbit-agent-builder",
+          platform: config.platform || "native.builder",
+          model: config.model || "",
+        },
+      }, this._connectedAgents.length);
+      this._connectedAgents.push(agent);
+      this._storeConnectedAgents();
+      this._renderActions();
+      this.dispatchEvent(new CustomEvent("avatar-agent-connected", { detail: { agent }, bubbles: true, composed: true }));
+      return agent;
+    }
+
+    removeAgent(id) {
+      const index = this._connectedAgents.findIndex((agent) => agent.id === id);
+      if (index < 0) return false;
+      const [agent] = this._connectedAgents.splice(index, 1);
+      this._storeConnectedAgents();
+      this._renderActions();
+      this.dispatchEvent(new CustomEvent("avatar-agent-removed", { detail: { agent }, bubbles: true, composed: true }));
+      return true;
     }
 
     setState(nextState) {
@@ -699,7 +750,8 @@
     }
 
     async runAction(actionOrId) {
-      const action = typeof actionOrId === "string" ? this._actions.find((item) => item.id === actionOrId) : actionOrId;
+      const availableActions = [...this._actions, ...this._connectedAgents];
+      const action = typeof actionOrId === "string" ? availableActions.find((item) => item.id === actionOrId) : actionOrId;
       if (!action) throw new Error("Avatar action not found.");
       const requestEvent = new CustomEvent("avatar-action", { detail: { action }, bubbles: true, composed: true, cancelable: true });
       if (!this.dispatchEvent(requestEvent)) return { prevented: true };
@@ -707,8 +759,12 @@
 
       const options = { method: action.method, headers: { ...(action.headers || {}) } };
       if (!['GET', 'HEAD'].includes(action.method) && action.body !== undefined) {
+        const latestUserMessage = [...this._messages].reverse().find((message) => message.role === "user")?.text || "";
+        const requestBody = action.connected && typeof action.body === "object"
+          ? { ...action.body, input: latestUserMessage }
+          : action.body;
         options.headers["Content-Type"] ||= "application/json";
-        options.body = typeof action.body === "string" ? action.body : JSON.stringify(action.body);
+        options.body = typeof requestBody === "string" ? requestBody : JSON.stringify(requestBody);
       }
 
       const animateWhileWaiting = action.animateWhileWaiting !== false;
@@ -748,6 +804,19 @@
             <button class="menu-toggle" type="button" aria-label="Open avatar actions" aria-expanded="false">${icons.menu}</button>
             <div class="action-menu" role="menu">
               <div class="backend-actions"></div>
+              <details class="agent-builder-disclosure">
+                <summary>Connect native.builder agent</summary>
+                <form class="agent-builder-form">
+                  <label class="agent-field">Agent name<input name="label" autocomplete="off" placeholder="Research agent" required></label>
+                  <label class="agent-field">Platform<select name="platform"><option value="native.builder">native.builder</option><option value="custom-api">Custom API</option><option value="openai-compatible">OpenAI-compatible</option><option value="local-agent">Local agent</option></select></label>
+                  <label class="agent-field">Model or workflow<input name="model" autocomplete="off" placeholder="Research pipeline"></label>
+                  <label class="agent-field">Public endpoint<input name="url" type="url" autocomplete="url" placeholder="https://…" required></label>
+                  <label class="agent-field">Request method<select name="method"><option value="POST">POST</option><option value="GET">GET</option></select></label>
+                  <button class="connect-agent-button" type="submit">Connect to Orbit</button>
+                  <p class="agent-builder-note">Connect a deployed native.builder workflow or another agent endpoint. Keep API secrets on your server.</p>
+                  <div class="connected-agent-list" aria-live="polite"></div>
+                </form>
+              </details>
               <details class="settings-disclosure">
                 <summary>Avatar settings</summary>
                 <div class="desktop-menu-controls">
@@ -780,6 +849,21 @@
         else this.setState("idle");
         this.dispatchEvent(new CustomEvent("speech-toggle-request", { detail: { active }, bubbles: true, composed: true }));
       });
+      this.$(".agent-builder-form").addEventListener("submit", (event) => {
+        event.preventDefault();
+        const form = event.currentTarget;
+        const values = Object.fromEntries(new FormData(form));
+        try {
+          this.connectAgent(values);
+          form.reset();
+          this.$(".agent-builder-disclosure").open = false;
+          this.addMessage(`${values.label} is connected and ready.`, "assistant");
+          this.playAction("success", { duration: 1600 });
+        } catch (error) {
+          this.addMessage(error.message, "assistant");
+          this.playAction("tantrum", { duration: 1400 });
+        }
+      });
       this.shadowRoot.addEventListener("click", (event) => {
         const skinButton = event.target.closest(".skin-option");
         if (skinButton) {
@@ -794,6 +878,11 @@
         }
         if (event.target.closest(".desktop-app-menu")) {
           this.dispatchEvent(new CustomEvent("avatar-desktop-menu-request", { bubbles: true, composed: true }));
+          return;
+        }
+        const removeAgentButton = event.target.closest("[data-remove-agent]");
+        if (removeAgentButton) {
+          this.removeAgent(removeAgentButton.dataset.removeAgent);
           return;
         }
         const button = event.target.closest(".action");
@@ -941,6 +1030,40 @@
       return node;
     }
 
+    _loadConnectedAgents() {
+      const key = this.getAttribute("agent-storage-key");
+      if (!key) {
+        this._connectedAgents = [];
+        return;
+      }
+      try {
+        const stored = JSON.parse(localStorage.getItem(key) || "[]");
+        this._connectedAgents = Array.isArray(stored)
+          ? stored.map((agent, index) => this._normalizeAction({ ...agent, connected: true }, index))
+          : [];
+      } catch {
+        this._connectedAgents = [];
+      }
+    }
+
+    _storeConnectedAgents() {
+      const key = this.getAttribute("agent-storage-key");
+      if (!key) return;
+      try {
+        localStorage.setItem(key, JSON.stringify(this._connectedAgents.map((agent) => ({
+          id: agent.id,
+          label: agent.label,
+          icon: agent.icon,
+          url: agent.url,
+          method: agent.method,
+          body: agent.body,
+          platform: agent.platform,
+          model: agent.model,
+          connected: true,
+        }))));
+      } catch {}
+    }
+
     _normalizeAction(action, index) {
       return {
         id: action.id || `action-${index + 1}`,
@@ -952,6 +1075,9 @@
         body: action.body,
         animateWhileWaiting: action.animateWhileWaiting !== false,
         waitingActions: Array.isArray(action.waitingActions) ? action.waitingActions.map(normalizeAnimationName).filter((name) => name !== "idle") : undefined,
+        connected: action.connected === true,
+        platform: action.platform || "",
+        model: action.model || "",
       };
     }
 
@@ -959,7 +1085,8 @@
       if (!this.$) return;
       const menu = this.$(".backend-actions");
       menu.replaceChildren();
-      this._actions.forEach((action) => {
+      const actions = [...this._actions, ...this._connectedAgents];
+      actions.forEach((action) => {
         const button = document.createElement("button");
         button.type = "button";
         button.className = "action";
@@ -969,16 +1096,33 @@
         button.querySelector(".action-label").textContent = action.label;
         menu.append(button);
       });
-      if (!this._actions.length) {
+      if (!actions.length) {
         const empty = document.createElement("div");
         empty.className = "empty-actions";
         empty.textContent = "No actions configured";
         menu.append(empty);
       }
+      const connectedList = this.$(".connected-agent-list");
+      if (connectedList) {
+        connectedList.replaceChildren(...this._connectedAgents.map((agent) => {
+          const row = document.createElement("div");
+          row.className = "connected-agent";
+          const label = document.createElement("span");
+          label.textContent = agent.label;
+          const remove = document.createElement("button");
+          remove.type = "button";
+          remove.className = "remove-agent";
+          remove.dataset.removeAgent = agent.id;
+          remove.setAttribute("aria-label", `Remove ${agent.label}`);
+          remove.textContent = "×";
+          row.append(label, remove);
+          return row;
+        }));
+      }
     }
 
     async _handleActionClick(button) {
-      const action = this._actions.find((item) => item.id === button.dataset.actionId);
+      const action = [...this._actions, ...this._connectedAgents].find((item) => item.id === button.dataset.actionId);
       if (!action) return;
       button.disabled = true;
       const label = button.querySelector(".action-label");
@@ -988,7 +1132,10 @@
         const result = await this.runAction(action);
         if (!result?.prevented) {
           this.setState("success");
-          this.addMessage(`${original} completed.`, "assistant");
+          const responseText = action.connected && typeof result === "object"
+            ? result.reply || result.message || result.text || result.result
+            : "";
+          this.addMessage(responseText || `${original} completed.`, "assistant");
           setTimeout(() => this.setState("idle"), 1500);
         }
         this.toggleMenu(false);

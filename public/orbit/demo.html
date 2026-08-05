@@ -80,6 +80,8 @@
     .future-proof { margin-top: 24px; padding: 20px 22px; border-left: 3px solid #20f6ff; border-radius: 0 16px 16px 0; background: rgba(32,246,255,.1); }
     .future-proof b { display: block; margin-bottom: 6px; color: #071524; font: 800 18px "Manrope", sans-serif; }
     .future-proof p { margin: 0; font-size: 15px; }
+    .builder-launch { display: inline-flex; align-items: center; gap: 9px; margin-top: 20px; padding: 12px 16px; border: 0; border-radius: 999px; color: #fff; background: #071524; box-shadow: 0 12px 28px rgba(7,21,36,.18); cursor: pointer; font: 800 12px "Manrope", sans-serif; }
+    .builder-launch:hover { transform: translateY(-2px); }
     .agent-stack { display: grid; gap: 10px; align-content: center; background: rgba(220,242,255,.7); }
     .agent-chip { display: flex; align-items: center; justify-content: space-between; gap: 14px; padding: 15px 17px; border: 1px solid rgba(12,111,255,.12); border-radius: 15px; background: rgba(255,255,255,.72); font-weight: 700; }
     .agent-chip span { color: #1677ff; font-size: 11px; letter-spacing: .08em; text-transform: uppercase; }
@@ -132,7 +134,7 @@
     <div class="proof-strip" aria-label="Orbit highlights">
       <span>Powered by Speechmatics</span>
       <span>Bring your own AI model</span>
-      <span>Connect custom agents</span>
+      <span>Native.builder agent connector</span>
       <span>Windows · macOS · Linux</span>
       <span>Always on top</span>
     </div>
@@ -145,7 +147,7 @@
         <button data-state="success">Success</button>
         <button id="demo-transcript">Demo transcript</button>
       </div>
-      <avatar-companion id="orbit" sprite-src="./orbit-spritesheet.png" emotions-src="./orbit-actions-emotions.png" acrobatics-src="./orbit-actions-acrobatics.png" entertainment-src="./orbit-actions-entertainment.png" love-src="./orbit-actions-love.png" state="idle" skin-storage-key="orbit-demo-skin" chat-open></avatar-companion>
+      <avatar-companion id="orbit" sprite-src="./orbit-spritesheet.png" emotions-src="./orbit-actions-emotions.png" acrobatics-src="./orbit-actions-acrobatics.png" entertainment-src="./orbit-actions-entertainment.png" love-src="./orbit-actions-love.png" state="idle" skin-storage-key="orbit-demo-skin" agent-storage-key="orbit-demo-agents" chat-open></avatar-companion>
     </section>
 
     <section id="capabilities" aria-labelledby="capabilities-title">
@@ -246,6 +248,9 @@
         <article class="feature-item"><b>Entertaining wait mode</b><span>Orbit performs rotating actions while agents and backend workflows complete instead of showing a lifeless spinner.</span></article>
         <article class="feature-item"><b>Visible conversation window</b><span>Chat appears beside the avatar for listening, speaking, progress updates, and final responses.</span></article>
         <article class="feature-item"><b>Configurable action menu</b><span>Add your own backend URLs, APIs, health checks, memory actions, and workflow triggers without rebuilding the component.</span></article>
+        <article class="feature-item"><b>Native Agent Builder</b><span>Connect a deployed native.builder workflow directly inside Orbit, choose its model or pipeline, and save it as a reusable action.</span></article>
+        <article class="feature-item"><b>End-to-end workflow demo</b><span>Connect an agent, invoke it from Orbit, watch the waiting performance, and receive the result in the same visible conversation.</span></article>
+        <article class="feature-item"><b>Functional public deployment</b><span>The complete experience, component assets, and cross-platform installers are publicly accessible through the Vercel application.</span></article>
       </div>
     </section>
 
@@ -255,6 +260,7 @@
         <h2 id="agents-title">Put Orbit in front of the AI stack you already trust.</h2>
         <p>Orbit is model-agnostic. Connect a hosted model, a private model, a local model, or a team of specialized agents. Route different requests to different systems and let a workflow engine coordinate the handoffs.</p>
         <p><strong>Orbit becomes the consistent human interface:</strong> one character, one conversation, and one voice experience across every tool behind it.</p>
+        <button class="builder-launch" id="open-agent-builder" type="button">Open Orbit’s native.builder connector →</button>
         <div class="future-proof">
           <b>AI agents change rapidly. Orbit stays familiar.</b>
           <p>As models, agent frameworks, and new technologies evolve, update the connections behind Orbit without forcing people to learn a new interface. Orbit provides one simple, consistent way to interact with AI—easy to recognize, configure, and extend.</p>
@@ -262,6 +268,7 @@
       </article>
       <aside class="agent-stack" aria-label="Example Orbit agent stack">
         <div class="agent-chip">Speechmatics transcription <span>Voice</span></div>
+        <div class="agent-chip">native.builder deployed workflow <span>Build</span></div>
         <div class="agent-chip">Preferred language model <span>Reason</span></div>
         <div class="agent-chip">Coding and app builder <span>Create</span></div>
         <div class="agent-chip">Email and operations agent <span>Act</span></div>
@@ -336,11 +343,18 @@
       }, 1100);
     });
 
+    document.querySelector('#open-agent-builder').addEventListener('click', () => {
+      orbit.toggleMenu(true);
+      orbit.shadowRoot.querySelector('.agent-builder-disclosure').open = true;
+      orbit.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    });
+
     orbit.addEventListener('speech-toggle-request', (event) => {
       orbit.setState(event.detail.active ? 'listening' : 'idle');
     });
 
     orbit.addEventListener('avatar-action', (event) => {
+      if (event.detail.action.connected) return;
       event.preventDefault();
       const label = event.detail.action.label;
       orbit.toggleMenu(false);

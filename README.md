@@ -10,16 +10,18 @@ HackClues is a Next.js hackathon application with an interactive AI companion ex
 
 ## Orbit capabilities
 
-- 16 expressions and actions, including thinking, crying, dancing, skipping, somersaults, backflips, and waiting performances.
+- 20 expressions and actions, including thinking, crying, dancing, skipping, somersaults, backflips, love actions, and waiting performances.
 - Click-to-activate chat with Speechmatics-compatible transcript events.
+- Native Agent Builder for connecting deployed native.builder workflows or custom AI agent endpoints directly inside Orbit.
+- End-to-end agent execution that forwards the latest spoken request, animates while the workflow runs, and returns the result to chat.
 - Configurable backend action menu and conversation endpoint.
-- Four selectable skins: Classic Orange, Electric Blue, Dove Gray, and Neon Pink.
+- Four selectable characters: Solis, Orbit, Nimbus, and Roisin in two-tone Rose Candy.
 - Transparent Electron desktop shell with direct dragging, persistent resizing, stable idle positioning, always-on-top behavior, and transparent click-through areas.
 - Windows, macOS, and Linux startup installers.
 
 ## Technology
 
-- Next.js 15, React 19, TypeScript, Tailwind CSS
+- Next.js 16, React 19, TypeScript, Tailwind CSS
 - Electron desktop runtime
 - Dependency-free Web Component for the avatar UI
 - Vercel static delivery for the Orbit showcase and installer downloads
@@ -90,4 +92,3 @@ See [Orbit architecture](docs/ORBIT_ARCHITECTURE.md), [deployment instructions](
 ## License
 
 No open-source license has been declared. All rights remain with the repository owners unless a license is added.
-

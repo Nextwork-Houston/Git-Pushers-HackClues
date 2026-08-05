@@ -135,6 +135,32 @@ orbit.bindSpeechSource(speechEvents, {
 
 The microphone button emits `speech-toggle-request`. Start or stop the Speechmatics session in that listener, then call `setState` as the session changes.
 
+## Native Agent Builder
+
+Orbit includes an in-avatar connector for the AI Factory Native.builder Hackathon. Open the hamburger menu and expand **Connect native.builder agent** to register a deployed native.builder workflow or another public agent endpoint. The connector captures the agent name, platform, model or workflow label, endpoint, and request method, then immediately adds the agent to Orbit's action menu.
+
+Add `agent-storage-key` to persist user-connected agents in local storage:
+
+```html
+<avatar-companion agent-storage-key="my-project-orbit-agents"></avatar-companion>
+```
+
+Hosts can also use the same builder API directly:
+
+```js
+const agent = orbit.connectAgent({
+  label: "Native research workflow",
+  platform: "native.builder",
+  model: "Research pipeline",
+  url: "https://your-native-builder-app.example/api/research",
+  method: "POST"
+});
+
+orbit.removeAgent(agent.id);
+```
+
+Keep API keys and provider secrets behind the connected server endpoint. Do not store secrets in Orbit or other browser-visible configuration.
+
 ## Backend action menu
 
 ```js
@@ -182,6 +208,8 @@ orbit.addEventListener("avatar-action", async (event) => {
 - `avatar-action`: an action was selected; cancel it to bypass built-in `fetch`.
 - `avatar-action-result`: the backend returned a successful response.
 - `avatar-action-error`: the backend request failed.
+- `avatar-agent-connected`: a user connected an agent through Orbit's Agent Builder.
+- `avatar-agent-removed`: a persisted Agent Builder connection was removed.
 - `avatar-animation`: a new expression or action started.
 - `avatar-waiting-start`: the waiting performance began.
 - `avatar-waiting-stop`: the waiting performance ended.
