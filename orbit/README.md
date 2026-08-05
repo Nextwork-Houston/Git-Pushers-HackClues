@@ -61,7 +61,7 @@ Copy these files into the target project:
 
 ## Avatar colors
 
-The four avatars are **Cinder** (`classic` orange), **Orbit** (`electric` blue), **Nimbus** (`dove` gray), and **Roisin** (`pink`). Users can choose one with the palette icon, or the host application can change it directly:
+The four avatars are **Solis** (`classic` orange), **Orbit** (`electric` blue), **Nimbus** (`dove` gray), and **Roisin** (`pink`). Users can choose one with the palette icon, or the host application can change it directly:
 
 ```js
 orbit.setSkin("dove");

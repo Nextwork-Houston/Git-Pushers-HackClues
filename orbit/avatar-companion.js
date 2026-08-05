@@ -57,8 +57,8 @@
   const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"];
   const SKINS = {
     classic: {
-      name: "Cinder",
-      label: "Cinder · Classic orange",
+      name: "Solis",
+      label: "Solis · Classic orange",
       filter: "brightness(1)",
       accent: "#ff9a24",
       accentSoft: "#ffd08a",
