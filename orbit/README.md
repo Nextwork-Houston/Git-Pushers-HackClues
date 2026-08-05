@@ -4,7 +4,7 @@ Orbit is a dependency-free Web Component built to be copied into other projects.
 
 ## Orbit on the Windows desktop
 
-The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Its permanent neon aura defines the interactive boundary, so transparent corners remain click-through. Drag the avatar itself to move it; Orbit animates while moving and remembers its position across restarts. Use the `−` and `+` controls to resize it, and click without dragging to open chat. Closing chat collapses Orbit back to the pet-only view.
+The `desktop` folder wraps the component in a transparent, always-on-top Electron window for Windows, macOS, and Linux. Orbit starts as a compact pet in the lower-right corner. Its permanent neon aura defines the interactive boundary, so transparent corners remain click-through. Drag the avatar itself to move it; Orbit animates while moving and remembers its position across restarts. The selected avatar's name appears above its head. Open the bottom hamburger menu to resize, switch among Solis, Orbit, Nimbus, and Roisin, launch backend actions, or open desktop options. Click the avatar without dragging to open chat; closing chat returns to the pet-only view.
 
 From the parent `little-eddy` folder, install and launch it with:
 

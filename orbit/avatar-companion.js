@@ -185,6 +185,26 @@
       z-index: -1;
     }
 
+    .avatar-nameplate {
+      position: absolute;
+      top: 0;
+      left: 50%;
+      z-index: 3;
+      min-width: 72px;
+      padding: 4px 11px;
+      border: 1px solid color-mix(in srgb, var(--avatar-accent) 48%, transparent);
+      border-radius: 999px;
+      color: var(--avatar-ink);
+      background: color-mix(in srgb, var(--avatar-surface-strong) 92%, transparent);
+      box-shadow: 0 0 14px color-mix(in srgb, var(--avatar-accent) 28%, transparent);
+      font-size: 12px;
+      font-weight: 850;
+      letter-spacing: .02em;
+      text-align: center;
+      transform: translateX(-50%);
+      pointer-events: none;
+    }
+
     .sprite-clip {
       width: 280px;
       height: 280px;
@@ -288,6 +308,14 @@
     }
 
     .action-menu[data-open="true"] { opacity: 1; visibility: visible; transform: none; pointer-events: auto; transition-delay: 0s; }
+    .desktop-menu-controls { display: none; }
+    .desktop-menu-label { padding: 5px 5px 2px; color: var(--avatar-muted); font-size: 10px; font-weight: 850; letter-spacing: .09em; text-transform: uppercase; }
+    .size-control-row { display: grid; grid-template-columns: 42px 1fr 42px; align-items: center; gap: 7px; }
+    .size-action { height: 38px; border: 1px solid rgba(57, 87, 118, .14); border-radius: 11px; color: var(--avatar-ink); background: rgba(22, 119, 255, .08); cursor: pointer; font-size: 20px; font-weight: 800; }
+    .size-action:hover { background: rgba(22, 119, 255, .16); }
+    .size-control-copy { color: var(--avatar-muted); font-size: 12px; font-weight: 750; text-align: center; }
+    .desktop-app-menu { margin-top: 3px; border-top: 1px solid rgba(57, 87, 118, .12); border-radius: 0 0 12px 12px; }
+    .backend-actions:empty { display: none; }
 
     .skin-picker {
       position: absolute;
@@ -432,7 +460,11 @@
     :host([desktop]) .companion { flex-direction: row; align-items: flex-end; gap: 18px; padding: 14px; }
     :host([desktop]) .chat { border-radius: 24px 24px 8px 24px; transform: translateX(12px) scale(0.96); }
     :host([desktop]) .companion:has(.action-menu[data-open="true"]) { padding-right: 246px; }
-    :host([desktop]) .action-menu { right: -224px; transform: translateX(-8px) scale(0.96); transform-origin: top left; }
+    :host([desktop]) .skin-toggle { display: none; }
+    :host([desktop]) .menu-toggle { top: auto; right: auto; bottom: 24px; left: 12px; }
+    :host([desktop]) .action-menu { top: 0; right: -224px; max-height: 300px; overflow-y: auto; transform: translateX(-8px) scale(0.96); transform-origin: top left; }
+    :host([desktop]) .desktop-menu-controls { display: grid; gap: 6px; }
+    :host([desktop]) .backend-actions:not(:empty) { margin-top: 5px; padding-top: 5px; border-top: 1px solid rgba(57, 87, 118, .12); }
     :host([desktop]) .action-menu[data-open="true"],
     :host([desktop]) .chat[data-open="true"] { transform: none; }
 
@@ -696,6 +728,7 @@
             <div class="messages" role="log" aria-live="polite"></div>
           </aside>
           <div class="stage">
+            <div class="avatar-nameplate"></div>
             <div class="aura"></div><div class="ground"></div>
             <div class="sprite-clip"><div class="sprite" role="img"></div></div>
             <button class="skin-toggle" type="button" aria-label="Choose avatar color" aria-expanded="false">${icons.palette}</button>
@@ -704,7 +737,20 @@
               ${Object.entries(SKINS).map(([name, skin]) => `<button class="skin-option" type="button" role="radio" data-skin="${name}" aria-checked="false"><span class="skin-swatch" aria-hidden="true"></span><span>${skin.label}</span></button>`).join("")}
             </div>
             <button class="menu-toggle" type="button" aria-label="Open avatar actions" aria-expanded="false">${icons.menu}</button>
-            <div class="action-menu" role="menu"></div>
+            <div class="action-menu" role="menu">
+              <div class="desktop-menu-controls">
+                <div class="desktop-menu-label">Avatar size</div>
+                <div class="size-control-row">
+                  <button class="size-action" type="button" data-size-step="-1" aria-label="Make avatar smaller">−</button>
+                  <span class="size-control-copy">Resize</span>
+                  <button class="size-action" type="button" data-size-step="1" aria-label="Make avatar larger">+</button>
+                </div>
+                <div class="desktop-menu-label">Choose avatar</div>
+                ${Object.entries(SKINS).map(([name, skin]) => `<button class="skin-option" type="button" role="radio" data-skin="${name}" aria-checked="false"><span class="skin-swatch" aria-hidden="true"></span><span>${skin.name}</span></button>`).join("")}
+                <button class="action desktop-app-menu" type="button"><span class="action-icon">${icons.menu}</span><span class="action-label">Desktop options</span><span class="action-arrow">›</span></button>
+              </div>
+              <div class="backend-actions"></div>
+            </div>
             <button class="speech-toggle" type="button" aria-label="Start voice conversation" aria-pressed="false">${icons.mic}</button>
           </div>
         </section>`;
@@ -727,6 +773,15 @@
         if (skinButton) {
           this.setSkin(skinButton.dataset.skin);
           this.toggleSkinMenu(false);
+          return;
+        }
+        const sizeButton = event.target.closest("[data-size-step]");
+        if (sizeButton) {
+          this.dispatchEvent(new CustomEvent("avatar-size-request", { detail: { step: Number(sizeButton.dataset.sizeStep) }, bubbles: true, composed: true }));
+          return;
+        }
+        if (event.target.closest(".desktop-app-menu")) {
+          this.dispatchEvent(new CustomEvent("avatar-desktop-menu-request", { bubbles: true, composed: true }));
           return;
         }
         const button = event.target.closest(".action");
@@ -753,6 +808,7 @@
         love: this.getAttribute("love-src") || DEFAULT_SHEETS.love,
       };
       this.$(".pet-name").textContent = name;
+      this.$(".avatar-nameplate").textContent = name;
       this.$(".sprite").setAttribute("aria-label", `${name}, ${this._state}`);
       this.$(".companion").dataset.state = this._state;
       this.$(".companion").dataset.busy = String(this._waiting);
@@ -889,7 +945,7 @@
 
     _renderActions() {
       if (!this.$) return;
-      const menu = this.$(".action-menu");
+      const menu = this.$(".backend-actions");
       menu.replaceChildren();
       this._actions.forEach((action) => {
         const button = document.createElement("button");

@@ -1,9 +1,6 @@
 "use strict";
 
 const orbit = document.querySelector("#orbit");
-const desktopMenu = document.querySelector("#desktop-menu");
-const sizeDown = document.querySelector("#size-down");
-const sizeUp = document.querySelector("#size-up");
 const desktopShell = document.querySelector(".desktop-shell");
 let recognition;
 let recognitionActive = false;
@@ -119,9 +116,8 @@ orbit.addEventListener("speech-toggle-request", (event) => {
   if (!event.detail.active) stopListening();
 });
 
-desktopMenu.addEventListener("click", () => window.orbitDesktop.showMenu());
-sizeDown.addEventListener("click", () => updateScale(orbitScale - 0.1));
-sizeUp.addEventListener("click", () => updateScale(orbitScale + 0.1));
+orbit.addEventListener("avatar-size-request", (event) => updateScale(orbitScale + event.detail.step * 0.1));
+orbit.addEventListener("avatar-desktop-menu-request", () => window.orbitDesktop.showMenu());
 
 function updateScale(nextScale) {
   orbitScale = Math.min(1.5, Math.max(0.65, Math.round(nextScale * 10) / 10));
@@ -198,7 +194,6 @@ function enableTransparentClickThrough() {
 
   document.addEventListener("mousemove", (event) => {
     const elements = selectors.map((selector) => orbit.shadowRoot.querySelector(selector)).filter(Boolean);
-    elements.push(document.querySelector(".window-tools"));
     const interactive = dragged || glowContainsPoint(event.clientX, event.clientY)
       || elements.some((element) => containsPoint(element, event.clientX, event.clientY));
     if (ignored === !interactive) return;

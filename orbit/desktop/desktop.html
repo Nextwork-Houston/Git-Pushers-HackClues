@@ -22,40 +22,10 @@
       bottom: 0;
     }
     .desktop-shell[data-dragging="true"] { cursor: grabbing; }
-    .window-tools {
-      position: absolute;
-      top: 8px;
-      right: 14px;
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      z-index: 20;
-      -webkit-app-region: no-drag;
-    }
-    .tool-button {
-      display: grid;
-      place-items: center;
-      width: 28px;
-      height: 28px;
-      padding: 0;
-      border: 1px solid rgba(35, 66, 96, 0.14);
-      border-radius: 50%;
-      color: #17324f;
-      background: rgba(245, 250, 255, 0.9);
-      box-shadow: 0 6px 20px rgba(6, 31, 55, 0.12);
-      cursor: pointer;
-    }
-    .tool-button:hover { background: #fff; }
-    .size-label { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); }
   </style>
 </head>
 <body>
   <main class="desktop-shell">
-    <div class="window-tools" aria-label="Desktop controls">
-      <button class="tool-button" id="size-down" type="button" aria-label="Make Orbit smaller">−</button>
-      <button class="tool-button" id="size-up" type="button" aria-label="Make Orbit larger">+</button>
-      <button class="tool-button" id="desktop-menu" type="button" aria-label="Orbit desktop menu">•••</button>
-    </div>
     <avatar-companion
       id="orbit"
       desktop
