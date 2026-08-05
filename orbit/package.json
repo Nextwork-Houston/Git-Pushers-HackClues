@@ -2,7 +2,7 @@
   "name": "orbit-desktop",
   "productName": "Orbit",
   "desktopName": "ai.orbit.Orbit.desktop",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "private": true,
   "description": "Always-available, voice-ready AI desktop companion",
   "homepage": "https://git-pushers-hackclues-orbit.vercel.app/orbit/demo.html",

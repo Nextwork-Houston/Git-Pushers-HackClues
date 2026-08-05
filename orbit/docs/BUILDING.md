@@ -42,10 +42,10 @@ npm run build:linux
 Artifacts are written to `release/`:
 
 - Windows x64: `release/Orbit-Setup-x64.exe`
-- macOS x64: `release/Orbit-1.0.0-x64.dmg`
-- macOS arm64: `release/Orbit-1.0.0-arm64.dmg`
-- Linux x64: `release/Orbit-1.0.0-x86_64.AppImage`
-- Linux x64 Debian package: `release/Orbit-1.0.0-amd64.deb`
+- macOS x64: `release/Orbit-1.0.1-x64.dmg`
+- macOS arm64: `release/Orbit-1.0.1-arm64.dmg`
+- Linux x64: `release/Orbit-1.0.1-x86_64.AppImage`
+- Linux x64 Debian package: `release/Orbit-1.0.1-amd64.deb`
 
 Artifact architecture labels are selected by Electron Builder and can vary slightly between target formats.
 

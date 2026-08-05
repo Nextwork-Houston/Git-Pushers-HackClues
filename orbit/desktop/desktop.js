@@ -9,6 +9,28 @@ let speechBridgePromptShown = false;
 let orbitScale = Number(localStorage.getItem("orbit-desktop-scale")) || 1;
 let dragged = false;
 let suppressActivation = false;
+let aliveRestartTimer;
+
+function startAliveMode() {
+  if (config.aliveMode === false || recognitionActive || orbit.waiting) return;
+  orbit.startWaiting({
+    ambient: true,
+    interval: Number(config.aliveInterval) || 3200,
+  });
+}
+
+function pauseAliveMode() {
+  clearTimeout(aliveRestartTimer);
+  if (orbit.waiting && orbit.ambient) orbit.stopWaiting({ state: null });
+  clearTimeout(aliveRestartTimer);
+}
+
+function scheduleAliveMode(delay = 1800) {
+  clearTimeout(aliveRestartTimer);
+  aliveRestartTimer = setTimeout(() => {
+    if (!recognitionActive && !orbit.waiting) startAliveMode();
+  }, delay);
+}
 
 function transcriptText(message) {
   return message?.detail?.text ?? message?.detail?.transcript ?? "";
@@ -16,6 +38,7 @@ function transcriptText(message) {
 
 async function sendConversation(text) {
   if (!config.conversationUrl) return;
+  pauseAliveMode();
   orbit.startWaiting({ openChat: true });
   try {
     const response = await fetch(config.conversationUrl, {
@@ -28,11 +51,15 @@ async function sendConversation(text) {
     const reply = result.reply || result.message || result.text;
     orbit.stopWaiting({ state: "speaking" });
     if (reply) orbit.addMessage(reply, "assistant");
-    setTimeout(() => orbit.setState("idle"), 900);
+    setTimeout(() => {
+      orbit.setState("idle");
+      scheduleAliveMode(500);
+    }, 900);
   } catch (error) {
     orbit.stopWaiting({ state: null });
     orbit.playAction("tantrum", { duration: 1600 });
     orbit.addMessage(error.message, "assistant");
+    scheduleAliveMode(1800);
   }
 }
 
@@ -68,6 +95,7 @@ function setupBrowserSpeech() {
 }
 
 function startListening() {
+  pauseAliveMode();
   orbit.openChat();
   orbit.setState("listening");
   recognitionActive = true;
@@ -86,6 +114,7 @@ function stopListening() {
   recognitionActive = false;
   if (recognition) recognition.stop();
   orbit.setState("idle");
+  scheduleAliveMode();
 }
 
 window.addEventListener("speechmatics.partial", (event) => {
@@ -118,6 +147,7 @@ orbit.addEventListener("speech-toggle-request", (event) => {
 
 orbit.addEventListener("avatar-size-request", (event) => updateScale(orbitScale + event.detail.step * 0.1));
 orbit.addEventListener("avatar-desktop-menu-request", () => window.orbitDesktop.showMenu());
+orbit.addEventListener("avatar-waiting-stop", () => scheduleAliveMode());
 
 function updateScale(nextScale) {
   orbitScale = Math.min(1.5, Math.max(0.65, Math.round(nextScale * 10) / 10));
@@ -140,10 +170,12 @@ function enableDirectDragging() {
     desktopShell.dataset.dragging = "false";
     if (dragged) orbit.setState("idle");
     dragged = false;
+    scheduleAliveMode();
   };
 
   sprite.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    pauseAliveMode();
     startPoint = { x: event.screenX, y: event.screenY };
     pointerId = event.pointerId;
     dragged = false;
@@ -210,4 +242,5 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   updateScale(orbitScale);
   enableDirectDragging();
   enableTransparentClickThrough();
+  startAliveMode();
 });

@@ -1,5 +1,7 @@
 {
   "launchAtStartup": false,
+  "aliveMode": true,
+  "aliveInterval": 3200,
   "skin": "electric",
   "language": "en-US",
   "browserSpeechFallback": false,

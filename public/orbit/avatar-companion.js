@@ -515,6 +515,7 @@
       this._speechCleanup = null;
       this._sheets = { ...DEFAULT_SHEETS };
       this._waiting = false;
+      this._ambient = false;
       this._waitingTimer = null;
       this._waitingActions = [...DEFAULT_WAITING_ACTIONS];
       this._waitingIndex = 0;
@@ -549,6 +550,7 @@
     get skin() { return this._skin; }
     set skin(value) { this.setSkin(value); }
     get waiting() { return this._waiting; }
+    get ambient() { return this._ambient; }
     get actions() { return [...this._actions, ...this._connectedAgents]; }
     set actions(value) {
       this._actions = Array.isArray(value) ? value.map((action, index) => this._normalizeAction(action, index)) : [];
@@ -640,19 +642,23 @@
       const requested = Array.isArray(options.actions) ? options.actions.map(normalizeAnimationName).filter((name) => name !== "idle") : [];
       this._waitingActions = requested.length ? requested : [...DEFAULT_WAITING_ACTIONS];
       this._waiting = true;
+      this._ambient = Boolean(options.ambient);
       this._waitingIndex = Math.floor(Math.random() * this._waitingActions.length);
       this._playNextWaitingAction();
       const interval = Math.max(1800, Number(options.interval || 3400));
       this._waitingTimer = setInterval(() => this._playNextWaitingAction(), interval);
       if (options.openChat) this.openChat();
-      if (this.$) this.$(".companion").dataset.busy = "true";
-      this.dispatchEvent(new CustomEvent("avatar-waiting-start", { bubbles: true, composed: true }));
+      if (this.$) this.$(".companion").dataset.busy = String(!this._ambient);
+      this._updateStatus();
+      this._renderMessages();
+      this.dispatchEvent(new CustomEvent("avatar-waiting-start", { detail: { ambient: this._ambient }, bubbles: true, composed: true }));
     }
 
     stopWaiting(options = {}) {
       clearInterval(this._waitingTimer);
       this._waitingTimer = null;
       this._waiting = false;
+      this._ambient = false;
       if (this.$) this.$(".companion").dataset.busy = "false";
       const nextState = options.state === null ? null : normalizeAnimationName(options.state);
       if (nextState) this.setState(nextState);
@@ -912,7 +918,7 @@
       this.$(".avatar-nameplate").textContent = name;
       this.$(".sprite").setAttribute("aria-label", `${name}, ${this._state}`);
       this.$(".companion").dataset.state = this._state;
-      this.$(".companion").dataset.busy = String(this._waiting);
+      this.$(".companion").dataset.busy = String(this._waiting && !this._ambient);
       this._applySkin();
       const chatOpen = this.hasAttribute("chat-open");
       const menuOpen = this.hasAttribute("menu-open");
@@ -992,7 +998,7 @@
 
     _updateStatus() {
       if (!this.$) return;
-      this.$(".status").textContent = this._waiting ? `Working · ${ANIMATIONS[this._state].label}` : ANIMATIONS[this._state].label;
+      this.$(".status").textContent = this._waiting && !this._ambient ? `Working · ${ANIMATIONS[this._state].label}` : ANIMATIONS[this._state].label;
       this.$(".speech-toggle").setAttribute("aria-pressed", String(this._state === "listening"));
       this.$(".sprite").setAttribute("aria-label", `${this.getAttribute("name") || "Orbit"}, ${this._state}`);
     }
@@ -1011,7 +1017,7 @@
         listening.innerHTML = 'I’m listening <span class="listening-bars" aria-hidden="true"><i></i><i></i><i></i></span>';
         container.append(listening);
       }
-      if (this._waiting && !this._liveTranscript) {
+      if (this._waiting && !this._ambient && !this._liveTranscript) {
         const waiting = document.createElement("div");
         waiting.className = "message";
         waiting.dataset.role = "assistant";

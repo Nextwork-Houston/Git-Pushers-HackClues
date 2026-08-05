@@ -20,11 +20,11 @@ Download `Orbit-Setup-x64.exe`, double-click it, and complete the installer. Orb
 
 ### macOS
 
-Download the DMG for Intel (`Orbit-1.0.0-x64.dmg`) or Apple Silicon (`Orbit-1.0.0-arm64.dmg`), open it, and drag Orbit into Applications. Current development packages are unsigned; see `docs/BUILDING.md` for the standard security and future notarization notes.
+Download the DMG for Intel (`Orbit-1.0.1-x64.dmg`) or Apple Silicon (`Orbit-1.0.1-arm64.dmg`), open it, and drag Orbit into Applications. Current development packages are unsigned; see `docs/BUILDING.md` for the standard security and future notarization notes.
 
 ### Linux
 
-Download `Orbit-1.0.0-x86_64.AppImage`, make it executable when required, and launch it. Debian-based systems can instead install `Orbit-1.0.0-amd64.deb`.
+Download `Orbit-1.0.1-x86_64.AppImage`, make it executable when required, and launch it. Debian-based systems can instead install `Orbit-1.0.1-amd64.deb`.
 
 ## Development
 

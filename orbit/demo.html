@@ -174,11 +174,11 @@
             <button data-animation="kiss">Blow kisses</button>
             <button data-animation="hearthug">Heart hug</button>
             <button data-animation="lovestruck">Lovestruck</button>
-            <button class="waiting-mix" id="waiting-mix">Start waiting mix</button>
+            <button class="waiting-mix" id="waiting-mix" aria-pressed="true">Stop waiting mix</button>
           </div>
         </section>
       </div>
-      <avatar-companion id="orbit" sprite-src="./orbit-spritesheet.png" emotions-src="./orbit-actions-emotions.png" acrobatics-src="./orbit-actions-acrobatics.png" entertainment-src="./orbit-actions-entertainment.png" love-src="./orbit-actions-love.png" state="idle" skin-storage-key="orbit-demo-skin" agent-storage-key="orbit-demo-agents" chat-open></avatar-companion>
+      <avatar-companion id="orbit" sprite-src="./orbit-spritesheet.png" emotions-src="./orbit-actions-emotions.png" acrobatics-src="./orbit-actions-acrobatics.png" entertainment-src="./orbit-actions-entertainment.png" love-src="./orbit-actions-love.png" state="idle" skin="pink" skin-storage-key="orbit-demo-skin" agent-storage-key="orbit-demo-agents" chat-open></avatar-companion>
     </section>
 
     <section id="capabilities" aria-labelledby="capabilities-title">
@@ -313,6 +313,12 @@
   <script src="./avatar-companion.js"></script>
   <script>
     const orbit = document.querySelector('#orbit');
+    const waitingMixButton = document.querySelector('#waiting-mix');
+    const avatarRotation = ['pink', 'classic', 'electric', 'dove'];
+    const aliveInterval = 2600;
+    let avatarRotationIndex = 0;
+    let completedAmbientActions = 0;
+    let avatarRotationTimer;
     orbit.actions = [
       { id: 'health', label: 'System health', icon: 'pulse', url: '/api/system/health', method: 'GET' },
       { id: 'memory', label: 'Save conversation', icon: 'memory', url: '/api/memory', body: { source: 'orbit' } },
@@ -330,14 +336,38 @@
       button.addEventListener('click', () => orbit.playAction(button.dataset.animation, { duration: 2600 }));
     });
 
-    document.querySelector('#waiting-mix').addEventListener('click', (event) => {
+    function startDemoMix() {
+      orbit.startWaiting({ interval: aliveInterval, ambient: true });
+      waitingMixButton.textContent = 'Stop waiting mix';
+      waitingMixButton.setAttribute('aria-pressed', 'true');
+    }
+
+    waitingMixButton.addEventListener('click', (event) => {
       if (orbit.waiting) {
         orbit.stopWaiting();
         event.currentTarget.textContent = 'Start waiting mix';
+        event.currentTarget.setAttribute('aria-pressed', 'false');
       } else {
-        orbit.startWaiting({ interval: 2200, openChat: true });
-        event.currentTarget.textContent = 'Stop waiting mix';
+        startDemoMix();
       }
+    });
+
+    orbit.addEventListener('avatar-animation', () => {
+      if (!orbit.waiting || !orbit.ambient) return;
+      completedAmbientActions += 1;
+      if (completedAmbientActions < 8) return;
+      completedAmbientActions = 0;
+      clearTimeout(avatarRotationTimer);
+      avatarRotationTimer = setTimeout(() => {
+        if (!orbit.waiting || !orbit.ambient) return;
+        avatarRotationIndex = (avatarRotationIndex + 1) % avatarRotation.length;
+        orbit.setSkin(avatarRotation[avatarRotationIndex]);
+      }, aliveInterval - 250);
+    });
+
+    orbit.addEventListener('avatar-skin-change', (event) => {
+      const selectedIndex = avatarRotation.indexOf(event.detail.skin);
+      if (selectedIndex >= 0) avatarRotationIndex = selectedIndex;
     });
 
     document.querySelector('#demo-transcript').addEventListener('click', () => {
@@ -373,6 +403,8 @@
         setTimeout(() => orbit.setState('idle'), 1600);
       }, 4200);
     });
+
+    startDemoMix();
   </script>
 </body>
 </html>
