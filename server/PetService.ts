@@ -14,7 +14,7 @@ export async function getPetInformation(PET_ID: string): Promise<z.infer<typeof 
 
     if(error || !data)
     {
-        console.error(`[ERROR]: ${error?.message}`);
+        console.error(`[PET-ERROR]: ${error?.message}`);
         throw new Error("Something went wrong while fetching pet from Pets!");
     }
 
@@ -22,7 +22,7 @@ export async function getPetInformation(PET_ID: string): Promise<z.infer<typeof 
 
     if(!pet.success)
     {
-        console.error(`[ERROR]: ${pet.error.message}`);
+        console.error(`[PET-ERROR]: ${pet.error.message}`);
         throw new Error("Something went wrong parsing pet response to Pet Schema!");
     }
 
@@ -34,7 +34,7 @@ export async function modifyPetInformation(input: z.infer<typeof ModifyPetSchema
     const parsedInput = ModifyPetSchema.safeParse(input);
 
     if (!parsedInput.success) {
-        console.error(`[ERROR]: ${parsedInput.error.message}`);
+        console.error(`[PET-ERROR]: ${parsedInput.error.message}`);
         throw new Error("Invalid input passed to modifyPetInformation!");
     }
 
@@ -56,14 +56,14 @@ export async function modifyPetInformation(input: z.infer<typeof ModifyPetSchema
     .maybeSingle();
 
     if (error || !data) {
-        console.error(`[ERROR]: ${error?.message}`);
+        console.error(`[PET-ERROR]: ${error?.message}`);
         throw new Error("Something went wrong while modifying pet in Pets!");
     }
 
     const pet = PetSchema.safeParse(data);
 
     if (!pet.success) {
-        console.error(`[ERROR]: ${pet.error.message}`);
+        console.error(`[PET-ERROR]: ${pet.error.message}`);
         throw new Error("Something went wrong parsing pet response to Pet Schema!");
     }
 
