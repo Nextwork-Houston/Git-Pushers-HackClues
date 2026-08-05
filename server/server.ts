@@ -1,4 +1,7 @@
+"use server"
+
 import { createServerClient } from '@supabase/ssr'
+import { User } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
 export async function createClient() {
@@ -41,4 +44,19 @@ export async function getUserProfile() {
     .single()
 
   return profile
+}
+
+export async function getUser(): Promise<User>
+{
+    const client = await createClient();
+
+    const { data: {user}, error: authError } = await client.auth.getUser();
+
+    if(authError || !user)
+    {
+        console.error(`[AUTH_ERROR]: ${authError?.message}`);
+        throw new Error("Unauthorized to access this PET!");
+    }
+
+    return user;
 }
