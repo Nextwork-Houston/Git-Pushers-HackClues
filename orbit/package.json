@@ -1,9 +1,11 @@
 {
   "name": "orbit-desktop",
   "productName": "Orbit",
+  "desktopName": "ai.orbit.Orbit.desktop",
   "version": "1.0.0",
   "private": true,
   "description": "Always-available, voice-ready AI desktop companion",
+  "homepage": "https://git-pushers-hackclues-orbit.vercel.app/orbit/demo.html",
   "author": "Nextwork Houston Git Pushers",
   "license": "UNLICENSED",
   "main": "desktop/main.js",
@@ -13,10 +15,10 @@
     "start": "npm run dev",
     "check": "node --check desktop/main.js && node --check desktop/preload.js && node --check desktop/desktop.js && node --check avatar-companion.js",
     "build": "electron-builder --dir",
-    "build:win": "electron-builder --win nsis --x64",
-    "build:mac": "electron-builder --mac dmg --x64 --arm64",
-    "build:linux": "electron-builder --linux AppImage deb --x64",
-    "dist": "electron-builder"
+    "build:win": "electron-builder --win nsis --x64 --publish never",
+    "build:mac": "electron-builder --mac dmg --x64 --arm64 --publish never",
+    "build:linux": "electron-builder --linux AppImage deb --x64 --publish never",
+    "dist": "electron-builder --publish never"
   },
   "devDependencies": {
     "electron": "^43.3.0",
@@ -86,6 +88,7 @@
     },
     "linux": {
       "icon": "build/icon.png",
+      "syncDesktopName": true,
       "category": "Utility",
       "maintainer": "Nextwork Houston Git Pushers",
       "synopsis": "Voice-ready AI desktop companion",
