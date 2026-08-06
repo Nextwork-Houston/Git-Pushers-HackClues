@@ -1,15 +1,36 @@
 "use strict";
 
 const orbit = document.querySelector("#orbit");
-const desktopMenu = document.querySelector("#desktop-menu");
-const sizeDown = document.querySelector("#size-down");
-const sizeUp = document.querySelector("#size-up");
+const desktopShell = document.querySelector(".desktop-shell");
 let recognition;
 let recognitionActive = false;
 let config = {};
 let speechBridgePromptShown = false;
 let orbitScale = Number(localStorage.getItem("orbit-desktop-scale")) || 1;
 let dragged = false;
+let suppressActivation = false;
+let aliveRestartTimer;
+
+function startAliveMode() {
+  if (config.aliveMode === false || recognitionActive || orbit.waiting) return;
+  orbit.startWaiting({
+    ambient: true,
+    interval: Number(config.aliveInterval) || 3200,
+  });
+}
+
+function pauseAliveMode() {
+  clearTimeout(aliveRestartTimer);
+  if (orbit.waiting && orbit.ambient) orbit.stopWaiting({ state: null });
+  clearTimeout(aliveRestartTimer);
+}
+
+function scheduleAliveMode(delay = 1800) {
+  clearTimeout(aliveRestartTimer);
+  aliveRestartTimer = setTimeout(() => {
+    if (!recognitionActive && !orbit.waiting) startAliveMode();
+  }, delay);
+}
 
 function transcriptText(message) {
   return message?.detail?.text ?? message?.detail?.transcript ?? "";
@@ -17,6 +38,7 @@ function transcriptText(message) {
 
 async function sendConversation(text) {
   if (!config.conversationUrl) return;
+  pauseAliveMode();
   orbit.startWaiting({ openChat: true });
   try {
     const response = await fetch(config.conversationUrl, {
@@ -29,11 +51,15 @@ async function sendConversation(text) {
     const reply = result.reply || result.message || result.text;
     orbit.stopWaiting({ state: "speaking" });
     if (reply) orbit.addMessage(reply, "assistant");
-    setTimeout(() => orbit.setState("idle"), 900);
+    setTimeout(() => {
+      orbit.setState("idle");
+      scheduleAliveMode(500);
+    }, 900);
   } catch (error) {
     orbit.stopWaiting({ state: null });
     orbit.playAction("tantrum", { duration: 1600 });
     orbit.addMessage(error.message, "assistant");
+    scheduleAliveMode(1800);
   }
 }
 
@@ -69,6 +95,7 @@ function setupBrowserSpeech() {
 }
 
 function startListening() {
+  pauseAliveMode();
   orbit.openChat();
   orbit.setState("listening");
   recognitionActive = true;
@@ -87,6 +114,7 @@ function stopListening() {
   recognitionActive = false;
   if (recognition) recognition.stop();
   orbit.setState("idle");
+  scheduleAliveMode();
 }
 
 window.addEventListener("speechmatics.partial", (event) => {
@@ -109,13 +137,17 @@ orbit.addEventListener("avatar-chat-change", (event) => {
   if (!event.detail.open) stopListening();
 });
 
+orbit.addEventListener("avatar-menu-change", (event) => {
+  window.orbitDesktop.setPanelOpen(event.detail.open);
+});
+
 orbit.addEventListener("speech-toggle-request", (event) => {
   if (!event.detail.active) stopListening();
 });
 
-desktopMenu.addEventListener("click", () => window.orbitDesktop.showMenu());
-sizeDown.addEventListener("click", () => updateScale(orbitScale - 0.1));
-sizeUp.addEventListener("click", () => updateScale(orbitScale + 0.1));
+orbit.addEventListener("avatar-size-request", (event) => updateScale(orbitScale + event.detail.step * 0.1));
+orbit.addEventListener("avatar-desktop-menu-request", () => window.orbitDesktop.showMenu());
+orbit.addEventListener("avatar-waiting-stop", () => scheduleAliveMode());
 
 function updateScale(nextScale) {
   orbitScale = Math.min(1.5, Math.max(0.65, Math.round(nextScale * 10) / 10));
@@ -126,44 +158,76 @@ function updateScale(nextScale) {
 function enableDirectDragging() {
   const sprite = orbit.shadowRoot.querySelector(".sprite");
   let startPoint;
+  let pointerId;
+
+  const finishDrag = () => {
+    if (!startPoint) return;
+    if (pointerId !== undefined && sprite.hasPointerCapture(pointerId)) sprite.releasePointerCapture(pointerId);
+    suppressActivation = dragged;
+    startPoint = null;
+    pointerId = undefined;
+    window.orbitDesktop.endDrag();
+    desktopShell.dataset.dragging = "false";
+    if (dragged) orbit.setState("idle");
+    dragged = false;
+    scheduleAliveMode();
+  };
+
   sprite.addEventListener("pointerdown", (event) => {
     if (event.button !== 0) return;
+    pauseAliveMode();
     startPoint = { x: event.screenX, y: event.screenY };
+    pointerId = event.pointerId;
     dragged = false;
+    suppressActivation = false;
+    window.orbitDesktop.setIgnoreMouse(false);
     sprite.setPointerCapture(event.pointerId);
     window.orbitDesktop.startDrag(event.screenX, event.screenY);
   });
   sprite.addEventListener("pointermove", (event) => {
     if (!startPoint) return;
-    if (Math.hypot(event.screenX - startPoint.x, event.screenY - startPoint.y) > 4) dragged = true;
+    if (!dragged && Math.hypot(event.screenX - startPoint.x, event.screenY - startPoint.y) > 5) {
+      dragged = true;
+      desktopShell.dataset.dragging = "true";
+      orbit.setState("skipping");
+    }
     if (dragged) window.orbitDesktop.dragTo(event.screenX, event.screenY);
   });
-  sprite.addEventListener("pointerup", (event) => {
-    if (!startPoint) return;
-    sprite.releasePointerCapture(event.pointerId);
-    startPoint = null;
-    window.orbitDesktop.endDrag();
-  });
+  sprite.addEventListener("pointerup", finishDrag);
+  sprite.addEventListener("pointercancel", finishDrag);
   sprite.addEventListener("click", (event) => {
-    if (!dragged) return;
+    if (!suppressActivation) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    dragged = false;
+    suppressActivation = false;
   }, true);
 }
 
 function enableTransparentClickThrough() {
-  const selectors = [".sprite", ".chat", ".menu-toggle", ".skin-toggle", ".speech-toggle", ".action-menu", ".skin-picker"];
+  const selectors = [".chat", ".menu-toggle", ".skin-toggle", ".speech-toggle", ".action-menu", ".skin-picker"];
   let ignored;
+
+  const containsPoint = (element, x, y) => {
+    const style = getComputedStyle(element);
+    if (style.visibility === "hidden" || style.pointerEvents === "none" || Number(style.opacity) === 0) return false;
+    const rect = element.getBoundingClientRect();
+    return x >= rect.left && x <= rect.right && y >= rect.top && y <= rect.bottom;
+  };
+
+  const glowContainsPoint = (x, y) => {
+    const aura = orbit.shadowRoot.querySelector(".aura");
+    const rect = aura.getBoundingClientRect();
+    const radiusX = rect.width / 2;
+    const radiusY = rect.height / 2;
+    const normalizedX = (x - (rect.left + radiusX)) / radiusX;
+    const normalizedY = (y - (rect.top + radiusY)) / radiusY;
+    return normalizedX * normalizedX + normalizedY * normalizedY <= 1;
+  };
+
   document.addEventListener("mousemove", (event) => {
     const elements = selectors.map((selector) => orbit.shadowRoot.querySelector(selector)).filter(Boolean);
-    elements.push(document.querySelector(".window-tools"));
-    const interactive = elements.some((element) => {
-      const style = getComputedStyle(element);
-      if (style.visibility === "hidden" || style.pointerEvents === "none" || Number(style.opacity) === 0) return false;
-      const rect = element.getBoundingClientRect();
-      return event.clientX >= rect.left && event.clientX <= rect.right && event.clientY >= rect.top && event.clientY <= rect.bottom;
-    });
+    const interactive = dragged || glowContainsPoint(event.clientX, event.clientY)
+      || elements.some((element) => containsPoint(element, event.clientX, event.clientY));
     if (ignored === !interactive) return;
     ignored = !interactive;
     window.orbitDesktop.setIgnoreMouse(ignored);
@@ -178,4 +242,5 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   updateScale(orbitScale);
   enableDirectDragging();
   enableTransparentClickThrough();
+  startAliveMode();
 });

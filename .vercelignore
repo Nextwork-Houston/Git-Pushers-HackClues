@@ -1,0 +1,9 @@
+.git
+.github
+.next
+.vercel
+node_modules
+tmp
+orbit/node_modules
+orbit/release
+orbit/tmp

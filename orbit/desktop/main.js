@@ -1,30 +1,109 @@
 "use strict";
 
-const { app, BrowserWindow, ipcMain, Menu, screen } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
+app.setName("Orbit");
+
 const COMPACT_SIZE = { width: 320, height: 350 };
 const EXPANDED_SIZE = { width: 710, height: 350 };
+const PANEL_SIZE = { width: 550, height: 350 };
+const FULL_SIZE = { width: 940, height: 350 };
+const DEFAULT_CONFIG_PATH = path.join(__dirname, "desktop-config.json");
 let orbitWindow;
+let orbitTray;
 let expanded = false;
+let panelOpen = false;
 let scale = 1;
 let dragSession;
-const hasSingleInstanceLock = app.requestSingleInstanceLock();
+let isQuitting = false;
 
-if (!hasSingleInstanceLock) app.quit();
+function userDataPath(...segments) {
+  return path.join(app.getPath("userData"), ...segments);
+}
 
-function getConfig() {
-  const configPath = path.join(__dirname, "desktop-config.json");
+function appendLog(level, message, error) {
   try {
-    return JSON.parse(fs.readFileSync(configPath, "utf8"));
+    const logDirectory = userDataPath("logs");
+    fs.mkdirSync(logDirectory, { recursive: true });
+    const detail = error?.stack || error?.message || error || "";
+    const line = `${new Date().toISOString()} [${level}] ${message}${detail ? `\n${detail}` : ""}\n`;
+    fs.appendFileSync(path.join(logDirectory, "orbit.log"), line, "utf8");
+  } catch {}
+}
+
+function readJson(filePath, fallback = {}) {
+  try {
+    return JSON.parse(fs.readFileSync(filePath, "utf8"));
   } catch {
-    return {};
+    return fallback;
   }
 }
 
+function settingsPath() {
+  return userDataPath("settings.json");
+}
+
+function getConfig() {
+  const defaults = readJson(DEFAULT_CONFIG_PATH);
+  const preferences = readJson(settingsPath());
+  return { launchAtStartup: false, ...defaults, ...preferences };
+}
+
+function savePreferences(nextPreferences) {
+  const filePath = settingsPath();
+  const preferences = { ...readJson(filePath), ...nextPreferences };
+  fs.mkdirSync(path.dirname(filePath), { recursive: true });
+  const temporaryPath = `${filePath}.tmp`;
+  fs.writeFileSync(temporaryPath, `${JSON.stringify(preferences, null, 2)}\n`, "utf8");
+  fs.renameSync(temporaryPath, filePath);
+  return preferences;
+}
+
+function setLaunchAtStartup(enabled) {
+  const launchAtStartup = Boolean(enabled);
+  const loginSettings = { openAtLogin: launchAtStartup, name: "Orbit" };
+  if (!app.isPackaged) {
+    loginSettings.path = process.execPath;
+    loginSettings.args = [path.resolve(__dirname, "..")];
+  }
+  app.setLoginItemSettings(loginSettings);
+  savePreferences({ launchAtStartup });
+  return launchAtStartup;
+}
+
+function positionStatePath() {
+  return userDataPath("orbit-window-state.json");
+}
+
+function loadSavedPosition() {
+  const saved = readJson(positionStatePath(), null);
+  return saved && Number.isFinite(saved.x) && Number.isFinite(saved.y) ? saved : null;
+}
+
+function saveWindowPosition() {
+  if (!orbitWindow || orbitWindow.isDestroyed()) return;
+  const { x, y } = orbitWindow.getBounds();
+  try {
+    fs.mkdirSync(app.getPath("userData"), { recursive: true });
+    fs.writeFileSync(positionStatePath(), JSON.stringify({ x, y }), "utf8");
+  } catch (error) {
+    appendLog("WARN", "Could not save the window position.", error);
+  }
+}
+
+function clampPosition(x, y, size) {
+  const display = screen.getDisplayNearestPoint({ x, y });
+  const { workArea } = display;
+  return {
+    x: Math.min(workArea.x + workArea.width - size.width, Math.max(workArea.x, Math.round(x))),
+    y: Math.min(workArea.y + workArea.height - size.height, Math.max(workArea.y, Math.round(y))),
+  };
+}
+
 function scaledSize() {
-  const size = expanded ? EXPANDED_SIZE : COMPACT_SIZE;
+  const size = expanded && panelOpen ? FULL_SIZE : expanded ? EXPANDED_SIZE : panelOpen ? PANEL_SIZE : COMPACT_SIZE;
   return {
     width: Math.round(size.width * scale),
     height: Math.round(size.height * scale),
@@ -34,6 +113,8 @@ function scaledSize() {
 function getInitialBounds() {
   const workArea = screen.getPrimaryDisplay().workArea;
   const size = scaledSize();
+  const saved = loadSavedPosition();
+  if (saved) return { ...size, ...clampPosition(saved.x, saved.y, size) };
   return {
     ...size,
     x: workArea.x + workArea.width - size.width - 18,
@@ -46,26 +127,55 @@ function resizeWindow() {
   const current = orbitWindow.getBounds();
   const next = scaledSize();
   orbitWindow.webContents.setZoomFactor(scale);
-  orbitWindow.setBounds({
-    ...next,
-    x: current.x + current.width - next.width,
-    y: current.y + current.height - next.height,
-  }, true);
+  const position = clampPosition(
+    current.x + current.width - next.width,
+    current.y + current.height - next.height,
+    next,
+  );
+  orbitWindow.setBounds({ ...next, ...position }, true);
 }
 
-function setExpanded(nextExpanded) {
-  expanded = nextExpanded;
-  resizeWindow();
+function showOrbit() {
+  if (!orbitWindow || orbitWindow.isDestroyed()) {
+    createWindow();
+    return;
+  }
+  orbitWindow.show();
+  orbitWindow.focus();
 }
 
-function setScale(nextScale) {
-  scale = Math.min(1.5, Math.max(0.65, Number(nextScale) || 1));
-  resizeWindow();
+function restartOrbit() {
+  isQuitting = true;
+  app.relaunch();
+  app.exit(0);
+}
+
+function iconPath() {
+  return app.isPackaged
+    ? path.join(process.resourcesPath, "icon.png")
+    : path.join(__dirname, "..", "build", "icon.png");
+}
+
+function createTray() {
+  if (orbitTray || !fs.existsSync(iconPath())) return;
+  const image = nativeImage.createFromPath(iconPath()).resize({ width: 24, height: 24 });
+  orbitTray = new Tray(image);
+  orbitTray.setToolTip(`Orbit ${app.getVersion()}`);
+  orbitTray.setContextMenu(Menu.buildFromTemplate([
+    { label: "Show Orbit", click: showOrbit },
+    { label: "Hide Orbit", click: () => orbitWindow?.hide() },
+    { type: "separator" },
+    { label: "Restart Orbit", click: restartOrbit },
+    { label: "Quit Orbit", click: () => app.quit() },
+  ]));
+  orbitTray.on("click", showOrbit);
 }
 
 function createWindow() {
+  if (orbitWindow && !orbitWindow.isDestroyed()) return orbitWindow;
   orbitWindow = new BrowserWindow({
     ...getInitialBounds(),
+    icon: iconPath(),
     transparent: true,
     backgroundColor: "#00000000",
     frame: false,
@@ -86,47 +196,97 @@ function createWindow() {
 
   orbitWindow.setAlwaysOnTop(true, "floating");
   orbitWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
-  orbitWindow.loadFile(path.join(__dirname, "desktop.html"));
+  orbitWindow.webContents.setWindowOpenHandler(() => ({ action: "deny" }));
+  orbitWindow.webContents.on("will-navigate", (event) => event.preventDefault());
+  orbitWindow.webContents.on("render-process-gone", (_event, details) => {
+    appendLog("ERROR", `Orbit's renderer stopped (${details.reason}).`);
+  });
+  orbitWindow.on("close", (event) => {
+    if (isQuitting) return;
+    event.preventDefault();
+    orbitWindow.hide();
+  });
+  orbitWindow.on("closed", () => { orbitWindow = undefined; });
+  orbitWindow.loadFile(path.join(__dirname, "desktop.html")).catch((error) => {
+    appendLog("ERROR", "Orbit failed to load its desktop interface.", error);
+    dialog.showErrorBox("Orbit could not start", `Orbit could not load its interface.\n\nLog: ${userDataPath("logs", "orbit.log")}`);
+  });
   orbitWindow.once("ready-to-show", () => orbitWindow.showInactive());
+  return orbitWindow;
 }
 
-ipcMain.on("orbit:set-expanded", (_event, expanded) => setExpanded(Boolean(expanded)));
-ipcMain.on("orbit:set-scale", (_event, nextScale) => setScale(nextScale));
-ipcMain.on("orbit:set-ignore-mouse", (_event, ignore) => {
-  if (orbitWindow) orbitWindow.setIgnoreMouseEvents(Boolean(ignore), { forward: true });
-});
-ipcMain.on("orbit:drag-start", (_event, point) => {
-  if (!orbitWindow || !point) return;
-  dragSession = { point, bounds: orbitWindow.getBounds() };
-});
-ipcMain.on("orbit:drag-move", (_event, point) => {
-  if (!orbitWindow || !dragSession || !point) return;
-  orbitWindow.setPosition(
-    Math.round(dragSession.bounds.x + point.x - dragSession.point.x),
-    Math.round(dragSession.bounds.y + point.y - dragSession.point.y),
-  );
-});
-ipcMain.on("orbit:drag-end", () => { dragSession = null; });
-ipcMain.on("orbit:quit", () => app.quit());
-ipcMain.handle("orbit:get-config", () => getConfig());
-ipcMain.on("orbit:show-menu", () => {
+function showDesktopMenu() {
   if (!orbitWindow) return;
-  const menu = Menu.buildFromTemplate([
+  Menu.buildFromTemplate([
+    { label: "Show Orbit", click: showOrbit },
+    { label: "Hide Orbit", click: () => orbitWindow.hide() },
     {
       label: orbitWindow.isAlwaysOnTop() ? "Disable always on top" : "Keep always on top",
       click: () => orbitWindow.setAlwaysOnTop(!orbitWindow.isAlwaysOnTop(), "floating"),
     },
-    { label: "Restart Orbit", click: () => orbitWindow.reload() },
+    { label: getConfig().launchAtStartup ? "Disable launch at login" : "Launch at login", click: () => setLaunchAtStartup(!getConfig().launchAtStartup) },
     { type: "separator" },
+    { label: "Restart Orbit", click: restartOrbit },
     { label: "Quit Orbit", click: () => app.quit() },
-  ]);
-  menu.popup({ window: orbitWindow });
-});
+  ]).popup({ window: orbitWindow });
+}
 
-app.whenReady().then(createWindow);
-app.on("second-instance", () => {
-  if (!orbitWindow) return;
-  if (!orbitWindow.isVisible()) orbitWindow.show();
-  orbitWindow.focus();
-});
-app.on("window-all-closed", () => app.quit());
+const hasSingleInstanceLock = app.requestSingleInstanceLock();
+if (!hasSingleInstanceLock) {
+  app.quit();
+} else {
+  ipcMain.on("orbit:set-expanded", (_event, nextExpanded) => {
+    expanded = Boolean(nextExpanded);
+    resizeWindow();
+  });
+  ipcMain.on("orbit:set-panel-open", (_event, open) => {
+    panelOpen = Boolean(open);
+    resizeWindow();
+  });
+  ipcMain.on("orbit:set-scale", (_event, nextScale) => {
+    scale = Math.min(1.5, Math.max(0.65, Number(nextScale) || 1));
+    resizeWindow();
+  });
+  ipcMain.on("orbit:set-ignore-mouse", (_event, ignore) => orbitWindow?.setIgnoreMouseEvents(Boolean(ignore), { forward: true }));
+  ipcMain.on("orbit:drag-start", (_event, point) => {
+    if (orbitWindow && point) dragSession = { point, bounds: orbitWindow.getBounds() };
+  });
+  ipcMain.on("orbit:drag-move", (_event, point) => {
+    if (!orbitWindow || !dragSession || !point) return;
+    const size = orbitWindow.getBounds();
+    const position = clampPosition(
+      dragSession.bounds.x + point.x - dragSession.point.x,
+      dragSession.bounds.y + point.y - dragSession.point.y,
+      size,
+    );
+    orbitWindow.setPosition(position.x, position.y);
+  });
+  ipcMain.on("orbit:drag-end", () => {
+    dragSession = null;
+    saveWindowPosition();
+  });
+  ipcMain.on("orbit:quit", () => app.quit());
+  ipcMain.on("orbit:show-menu", showDesktopMenu);
+  ipcMain.handle("orbit:get-config", () => getConfig());
+  ipcMain.handle("orbit:get-app-info", () => ({ version: app.getVersion(), userDataPath: app.getPath("userData") }));
+  ipcMain.handle("orbit:set-launch-at-startup", (_event, enabled) => setLaunchAtStartup(enabled));
+
+  process.on("uncaughtException", (error) => appendLog("FATAL", "Uncaught main-process exception.", error));
+  process.on("unhandledRejection", (error) => appendLog("ERROR", "Unhandled main-process rejection.", error));
+
+  app.on("before-quit", () => { isQuitting = true; });
+  app.on("second-instance", showOrbit);
+  app.on("activate", showOrbit);
+  app.on("window-all-closed", () => {});
+  app.whenReady().then(() => {
+    appendLog("INFO", `Orbit ${app.getVersion()} starting on ${process.platform}.`);
+    const config = getConfig();
+    if (config.launchAtStartup) setLaunchAtStartup(true);
+    createWindow();
+    createTray();
+  }).catch((error) => {
+    appendLog("FATAL", "Electron failed during startup.", error);
+    dialog.showErrorBox("Orbit could not start", `Orbit encountered a startup error.\n\nLog: ${userDataPath("logs", "orbit.log")}`);
+    app.exit(1);
+  });
+}
