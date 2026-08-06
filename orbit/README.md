@@ -26,6 +26,10 @@ Download the DMG for Intel (`Orbit-1.0.1-x64.dmg`) or Apple Silicon (`Orbit-1.0.
 
 Download `Orbit-1.0.1-x86_64.AppImage`, make it executable when required, and launch it. Debian-based systems can instead install `Orbit-1.0.1-amd64.deb`.
 
+### iPhone, iPad, and Android
+
+Open the hosted Orbit page on the device and select **Install Orbit on this device**. Android browsers show the native install prompt when available. On iPhone and iPad, use Safari's Share menu and select **Add to Home Screen**. The mobile edition is a Progressive Web App with an app icon, standalone window, and offline app shell. Mobile operating systems do not provide the desktop edition's always-on-top overlay behavior.
+
 ## Development
 
 ```bash

@@ -1,0 +1,40 @@
+{
+  "id": "/orbit/",
+  "name": "Orbit AI Companion",
+  "short_name": "Orbit",
+  "description": "A voice-ready AI companion for conversations, agents, and multi-step workflows.",
+  "start_url": "/orbit/demo.html?source=pwa",
+  "scope": "/orbit/",
+  "display": "standalone",
+  "display_override": ["standalone", "minimal-ui"],
+  "orientation": "any",
+  "background_color": "#071524",
+  "theme_color": "#071524",
+  "categories": ["productivity", "utilities"],
+  "icons": [
+    {
+      "src": "/orbit/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any"
+    },
+    {
+      "src": "/orbit/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any"
+    }
+  ],
+  "shortcuts": [
+    {
+      "name": "Talk to Orbit",
+      "short_name": "Talk",
+      "url": "/orbit/demo.html?source=shortcut#top"
+    },
+    {
+      "name": "Connect an agent",
+      "short_name": "Agents",
+      "url": "/orbit/demo.html?source=shortcut#agents"
+    }
+  ]
+}
