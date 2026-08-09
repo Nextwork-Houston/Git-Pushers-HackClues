@@ -557,6 +557,7 @@
       this._sheets = { ...DEFAULT_SHEETS };
       this._waiting = false;
       this._connection = "unknown";
+      this._listening = false;
       this._ambient = false;
       this._waitingTimer = null;
       this._waitingActions = [...DEFAULT_WAITING_ACTIONS];
@@ -672,6 +673,29 @@
     }
 
     get connection() { return this._connection || "unknown"; }
+
+    /**
+     * Records whether the microphone is actually open.
+     *
+     * The host owns the speech transport, so only the host knows the truth.
+     * Keeping this separate from the animation state is what stops a second
+     * microphone being opened mid-conversation, and it keeps the button's
+     * pressed state honest when speech stops for reasons the user did not
+     * trigger — a dropped socket, a denied permission, an expired token.
+     */
+    setListening(value) {
+      this._listening = Boolean(value);
+
+      const toggle = this.$ && this.$(".speech-toggle");
+      if (toggle) {
+        toggle.setAttribute("aria-pressed", String(this._listening));
+        toggle.setAttribute("aria-label", this._listening ? "Stop voice conversation" : "Start voice conversation");
+      }
+
+      return this._listening;
+    }
+
+    get listening() { return Boolean(this._listening); }
 
     setSkin(name, options = {}) {
       const normalized = normalizeSkinName(name);
@@ -920,7 +944,13 @@
         this.setState("idle");
       });
       this.$(".speech-toggle").addEventListener("click", () => {
-        const active = this._state !== "listening";
+        // Whether the microphone is open is tracked separately from the
+        // animation state. The state moves to "speaking" and back to "idle"
+        // during a normal exchange while the microphone stays open, so using
+        // it here made the next click open a second microphone on top of the
+        // first instead of closing the one already running.
+        const active = !this._listening;
+        this.setListening(active);
         if (active) this.activate();
         else this.setState("idle");
         this.dispatchEvent(new CustomEvent("speech-toggle-request", { detail: { active }, bubbles: true, composed: true }));

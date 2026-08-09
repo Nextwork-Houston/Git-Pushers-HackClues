@@ -530,17 +530,26 @@
     // in at /companion the same bridge upgrades to Speechmatics automatically.
     let showcaseBridge = null;
 
+    function stopShowcaseSpeech() {
+      if (showcaseBridge) {
+        showcaseBridge.stop();
+        showcaseBridge = null;
+      }
+      orbit.setListening(false);
+    }
+
     orbit.addEventListener('speech-toggle-request', async (event) => {
       if (!event.detail.active) {
-        if (showcaseBridge) {
-          showcaseBridge.stop();
-          showcaseBridge = null;
-        }
+        stopShowcaseSpeech();
         orbit.setState('idle');
         return;
       }
 
+      // Never stack a second microphone on top of a live one.
+      if (showcaseBridge) return;
+
       if (!window.OrbitSpeechBridge) {
+        orbit.setListening(false);
         orbit.addMessage('Speech did not load. Reload the page and try again.', 'assistant');
         return;
       }
@@ -551,7 +560,7 @@
       try {
         await showcaseBridge.start();
       } catch {
-        showcaseBridge = null;
+        stopShowcaseSpeech();
         orbit.setState('idle');
         orbit.addMessage(
           'I need microphone access to listen. Allow it in your browser, then try again.',
@@ -559,6 +568,12 @@
         );
       }
     });
+
+    // Speech can stop for reasons the user did not trigger — a closed socket,
+    // a revoked permission. The button has to reflect that or the next click
+    // does the opposite of what it looks like it will do.
+    window.addEventListener('speech.end', stopShowcaseSpeech);
+    window.addEventListener('speech.error', stopShowcaseSpeech);
 
     window.addEventListener('speechmatics.partial', (event) => {
       orbit.setTranscript(event.detail.text, { role: 'user' });

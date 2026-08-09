@@ -141,12 +141,14 @@ async function deliverToBuilder(prompt) {
  * nothing below needs to know which is live.
  */
 async function startListening() {
+  // Already live — a second call would open a second microphone.
+  if (speechBridge) return;
+
   pauseAliveMode();
   orbit.openChat();
   orbit.setState("listening");
+  orbit.setListening(true);
   recognitionActive = true;
-
-  if (speechBridge) return;
 
   if (!window.OrbitSpeechBridge) {
     orbit.addMessage("My speech bridge did not load. Restart me and try again.", "assistant");
@@ -181,7 +183,15 @@ async function startListening() {
   } catch (error) {
     speechBridge = null;
     recognitionActive = false;
+    orbit.setListening(false);
+
+    // Electron ships no Web Speech API, so unlike the browser there is no
+    // silent fallback here: without a session she genuinely cannot hear.
+    // Saying so, and opening sign-in, beats standing there looking broken.
+    orbit.openChat();
     orbit.addMessage(`I could not start listening: ${error.message}`, "assistant");
+    orbit.addMessage("Sign in and I will be able to hear you.", "assistant");
+    window.orbitDesktop.signIn().then(refreshConnection).catch(() => {});
     orbit.setState("idle");
     scheduleAliveMode();
   }
@@ -193,6 +203,7 @@ function stopListening() {
     speechBridge.stop();
     speechBridge = null;
   }
+  orbit.setListening(false);
   orbit.setState("idle");
   scheduleAliveMode();
 }
@@ -227,7 +238,18 @@ orbit.addEventListener("avatar-menu-change", (event) => {
 });
 
 orbit.addEventListener("speech-toggle-request", (event) => {
-  if (!event.detail.active) stopListening();
+  if (event.detail.active) startListening();
+  else stopListening();
+});
+
+window.addEventListener("speech.end", () => {
+  recognitionActive = false;
+  orbit.setListening(false);
+});
+
+window.addEventListener("speech.error", () => {
+  recognitionActive = false;
+  orbit.setListening(false);
 });
 
 // Actions marked with a desktopAction are handled here rather than being sent
