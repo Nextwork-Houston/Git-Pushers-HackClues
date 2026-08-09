@@ -209,6 +209,13 @@ That is real search data, gathered just now.
 
 Use it to write the build instruction. Ground concrete choices — features, competitors, pricing, integrations — in what the results actually show, and do not invent details they do not support. Say one short spoken sentence about what you found; keep URLs out of "say".
 
+Translate what you found; do not copy it. The results describe other companies' products, most of them native mobile apps. native.builder ships web applications, so every feature you carry across has to be buildable on the web.
+
+- Drop anything platform-specific: Siri Shortcuts, Apple Health, Google Fit, App Store billing, widgets, watch apps.
+- Keep the underlying need and rebuild it for the web. "Syncs with Apple Health" becomes "import workout data from a CSV or a connected fitness API".
+- If a feature needs speech, name Speechmatics. Data, auth, or storage, name Supabase. Scraping or market data, name Bright Data. Never name a competitor's vendor as our integration.
+- Do not name a rival product inside the instruction. The builder is making our app, not a clone.
+
 Reply with action "build" and a builderPrompt. Only choose "ask" if the results genuinely left one blocking question unanswered.`,
     },
   ])
