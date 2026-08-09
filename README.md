@@ -77,9 +77,15 @@ markup changes.
 
 ## Database
 
-Apply `supabase/migrations/0001_init.sql` to your Supabase project. It creates
-`profiles`, `pets`, and `conversations`, enables row level security on all
-three, and adds a trigger that gives every new account a companion.
+Run [supabase/schema.sql](supabase/schema.sql) in the Supabase SQL editor. It is
+the whole database in one file: enums, `profiles`, `pets`, `messages`, `builds`,
+row level security on all four, and the trigger that gives every new account a
+companion.
+
+It drops the Orbit tables before recreating them, so running it discards
+existing Orbit data. That is deliberate — incremental migrations guarded with
+`if not exists` silently skipped tables that had been created by hand with a
+different shape, which is how the schema drifted out of sync with the code.
 
 ## Verifying
 

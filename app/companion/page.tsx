@@ -1,8 +1,8 @@
 import type { Metadata } from 'next'
 
-import { getConversationHistory } from '@/server/ConversationService'
+import { getMessages } from '@/server/ConversationService'
 import { getCurrentPet } from '@/server/PetService'
-import { messageText, type ConversationMessage } from '@/server/types'
+import type { Message } from '@/server/types'
 
 import { CompanionClient } from './companion-client'
 
@@ -14,24 +14,15 @@ export const dynamic = 'force-dynamic'
 /** How many past messages are replayed into the chat panel on load. */
 const REPLAYED_MESSAGES = 20
 
-function toChatMessage(message: ConversationMessage) {
-  return {
-    id: message.id,
-    role: message.role,
-    type: message.type,
-    text: messageText(message),
-  }
-}
-
 export default async function CompanionPage() {
   const pet = await getCurrentPet()
 
-  let history: ConversationMessage[] = []
+  let history: Message[] = []
 
   try {
-    history = (await getConversationHistory(pet.id)).messages
+    history = await getMessages(pet.id, REPLAYED_MESSAGES)
   } catch (error) {
-    // A missing conversation row should not block the companion from loading.
+    // A history that will not load should not keep the companion offline.
     console.error('[COMPANION-PAGE] history', error)
   }
 
@@ -39,12 +30,18 @@ export default async function CompanionPage() {
     <CompanionClient
       pet={{
         id: pet.id,
-        name: pet.pet_name,
+        name: pet.name,
         xp: pet.xp,
+        level: pet.level,
         mood: pet.mood,
-        spritesheetUrl: pet.spritesheet_url,
+        skin: pet.skin,
       }}
-      history={history.slice(-REPLAYED_MESSAGES).map(toChatMessage)}
+      history={history.map((message) => ({
+        id: message.id,
+        role: message.role,
+        kind: message.kind,
+        content: message.content,
+      }))}
       builderUrl={
         process.env.NEXT_PUBLIC_NATIVE_BUILDER_URL ||
         'https://builder.nativelyai.com'

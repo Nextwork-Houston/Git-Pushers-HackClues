@@ -1,64 +1,97 @@
 import { z } from 'zod'
 
+/** Mirrors the `avatar_skin` enum. Roisin is `pink`. */
+export const AvatarSkinSchema = z.enum(['classic', 'electric', 'dove', 'pink'])
+export type AvatarSkin = z.infer<typeof AvatarSkinSchema>
+
+/** Mirrors the `pet_mood` enum. The sprite sheets animate exactly these. */
+export const PetMoodSchema = z.enum([
+  'idle',
+  'happy',
+  'sad',
+  'angry',
+  'curious',
+  'thinking',
+  'love',
+  'confused',
+  'celebrate',
+])
+export type PetMood = z.infer<typeof PetMoodSchema>
+
+export const MessageRoleSchema = z.enum(['user', 'assistant', 'system'])
+export type MessageRole = z.infer<typeof MessageRoleSchema>
+
+export const MessageKindSchema = z.enum([
+  'text',
+  'transcript',
+  'builder_prompt',
+  'tool_result',
+  'error',
+])
+export type MessageKind = z.infer<typeof MessageKindSchema>
+
+export const BuildStatusSchema = z.enum(['pending', 'sent', 'failed'])
+export type BuildStatus = z.infer<typeof BuildStatusSchema>
+
 export const PetSchema = z.object({
-  id: z.uuid().describe('ID of the Pet'),
-  user_id: z.uuid().describe('The account that owns this Pet'),
-  pet_name: z.string().describe('Name of the Pet'),
-  xp: z.int32().describe('The xp of the Pet'),
-  spritesheet_url: z.string().describe('The URL that links to the spritesheet.'),
-  mood: z.string().describe('The mood of the Pet'),
-  created_at: z.coerce.date().describe('The timestamp that the pet was created at'),
-  updated_at: z.coerce.date().describe('The timestamp that the pet was last updated.'),
+  id: z.uuid(),
+  user_id: z.uuid(),
+  name: z.string(),
+  skin: AvatarSkinSchema,
+  xp: z.int32().min(0),
+  /** Generated in the database from xp, so it can never disagree with it. */
+  level: z.int32().min(1),
+  mood: PetMoodSchema,
+  created_at: z.coerce.date(),
+  updated_at: z.coerce.date(),
 })
 
 export type Pet = z.infer<typeof PetSchema>
 
 export const ModifyPetSchema = z.object({
-  id: z.uuid().describe('ID of the Pet you want to modify.'),
-  pet_name: z.string().min(1).max(40).optional(),
-  xp: z.int32().min(0).optional(),
-  spritesheet_url: z.string().optional(),
-  mood: z.string().max(40).optional(),
+  id: z.uuid(),
+  name: z.string().trim().min(1).max(40).optional(),
+  skin: AvatarSkinSchema.optional(),
+  mood: PetMoodSchema.optional(),
 })
 
 export type ModifyPet = z.infer<typeof ModifyPetSchema>
 
-export const MessageContentSchema = z.object({
-  content: z.string().describe('The actual content'),
-  type: z.string().describe('The type of content (text, prompt, tool_result, …).'),
+export const MessageSchema = z.object({
+  id: z.uuid(),
+  pet_id: z.uuid(),
+  user_id: z.uuid(),
+  role: MessageRoleSchema,
+  kind: MessageKindSchema,
+  content: z.string(),
+  input_tokens: z.int32().min(0).nullable().optional(),
+  output_tokens: z.int32().min(0).nullable().optional(),
+  created_at: z.coerce.date(),
 })
 
-export const ConversationMessageSchema = z.object({
-  id: z.uuid().describe('The ID of the specific conversation message.'),
-  role: z
-    .enum(['user', 'assistant', 'system'])
-    .describe('Who sent the message.'),
-  type: z.string().describe('The type of message.'),
-  created_at: z.coerce.date().describe('The timestamp the message was sent.'),
-  usage: z
-    .object({
-      input_tokens: z.uint32(),
-      output_tokens: z.uint32(),
-    })
-    .optional()
-    .describe('Token usage, when the message came from a model.'),
-  content: z.array(MessageContentSchema).min(1),
+export type Message = z.infer<typeof MessageSchema>
+
+/** A message about to be written. The database fills in the rest. */
+export const NewMessageSchema = z.object({
+  role: MessageRoleSchema,
+  kind: MessageKindSchema.default('text'),
+  content: z.string().trim().min(1).max(20000),
+  input_tokens: z.int32().min(0).optional(),
+  output_tokens: z.int32().min(0).optional(),
 })
 
-export type ConversationMessage = z.infer<typeof ConversationMessageSchema>
+export type NewMessage = z.infer<typeof NewMessageSchema>
 
-export const ConversationSchema = z.object({
-  pet_id: z.uuid().describe('The Pet this conversation history belongs to.'),
-  user_id: z.uuid().describe('The account that owns this conversation.'),
-  messages: z.array(ConversationMessageSchema).describe('Message history'),
+export const BuildSchema = z.object({
+  id: z.uuid(),
+  pet_id: z.uuid(),
+  user_id: z.uuid(),
+  message_id: z.uuid().nullable(),
+  prompt: z.string(),
+  status: BuildStatusSchema,
+  error: z.string().nullable(),
+  delivered_at: z.coerce.date().nullable(),
+  created_at: z.coerce.date(),
 })
 
-export type Conversation = z.infer<typeof ConversationSchema>
-
-/** Pulls the plain text out of a stored message. */
-export function messageText(message: ConversationMessage): string {
-  return message.content
-    .map((part) => part.content)
-    .join('\n')
-    .trim()
-}
+export type Build = z.infer<typeof BuildSchema>

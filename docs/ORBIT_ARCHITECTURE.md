@@ -109,16 +109,29 @@ evaluates the generated literal to prove the prompt survives as inert data.
 
 ## Data model
 
-Three owner-scoped tables, all under row level security
-(`supabase/migrations/0001_init.sql`):
+Four owner-scoped tables, all under row level security (`supabase/schema.sql`):
 
-- `profiles` — one row per auth user, holds the username
-- `pets` — the companion: name, XP, mood, sprite sheet
-- `conversations` — one message log per pet, `user_id` denormalised so policies
-  need no subquery
+- `profiles` — one row per auth user. `username` is `citext`, so a name cannot
+  be claimed twice under different capitalisation.
+- `pets` — the companion: name, skin, XP, mood. One per account, enforced by a
+  unique constraint on `user_id`, which is what lets the app look up "my pet"
+  without choosing between duplicates. `level` is a generated column derived
+  from `xp`, so the two can never disagree.
+- `messages` — one row per message. An earlier design kept the whole history in
+  a single `jsonb` column, which meant every append rewrote the entire
+  conversation and two concurrent replies could lose one another.
+- `builds` — every instruction handed to native.builder. The builder offers no
+  way to query what it was sent, so this is the only record it happened.
 
-A trigger provisions a pet and an empty conversation on sign-up, so a signed-in
-user always has something to talk to.
+Moods and skins are enums rather than free text: the sprite sheets animate a
+fixed set, so a typo should fail on write instead of silently rendering idle.
+
+XP is added by the `award_xp` function in a single statement. Read-modify-write
+from the application would let two replies arriving together read the same
+starting value and lose one of the awards.
+
+A trigger provisions a pet on sign-up, so a signed-in user always has something
+to talk to.
 
 ## Source layout
 

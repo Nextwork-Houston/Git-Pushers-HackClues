@@ -1,5 +1,5 @@
 import { llmApiKey, llmBaseUrl, llmModel } from './env'
-import { messageText, type ConversationMessage } from './types'
+import type { Message } from './types'
 
 /**
  * Roisin is a voice guide for native.builder.
@@ -96,7 +96,7 @@ function coerceReply(raw: string): RoisinReply {
  */
 export async function composeReply(
   transcript: string,
-  history: ConversationMessage[],
+  history: Message[],
 ): Promise<RoisinReply> {
   const apiKey = llmApiKey()
 
@@ -124,7 +124,7 @@ export async function composeReply(
           { role: 'system', content: SYSTEM_PROMPT },
           ...history.slice(-HISTORY_WINDOW).map((message) => ({
             role: message.role === 'assistant' ? 'assistant' : 'user',
-            content: messageText(message),
+            content: message.content,
           })),
           { role: 'user', content: transcript },
         ],

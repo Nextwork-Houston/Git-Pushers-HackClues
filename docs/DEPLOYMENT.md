@@ -37,11 +37,11 @@ configured without revealing any values.
 
 ## Database
 
-Apply `supabase/migrations/0001_init.sql` to the Supabase project before the
-first sign-in. It creates the tables, enables row level security, and adds the
-trigger that provisions a companion for every new account.
+Run `supabase/schema.sql` in the Supabase SQL editor before the first sign-in.
+It creates the enums, tables, policies, functions, and provisioning trigger.
 
-Applying it is safe to repeat; the statements are written to be idempotent.
+It drops the Orbit tables first, so it is safe to repeat but destructive to any
+existing Orbit data.
 
 ## Desktop release bundle
 

@@ -14,16 +14,17 @@ const ROISIN_SKIN = 'pink'
 type ChatMessage = {
   id: string
   role: 'user' | 'assistant' | 'system'
-  type: string
-  text: string
+  kind: string
+  content: string
 }
 
 type PetSummary = {
   id: string
   name: string
   xp: number
+  level: number
   mood: string
-  spritesheetUrl: string
+  skin: string
 }
 
 type AvatarElement = HTMLElement & {
@@ -159,10 +160,10 @@ export function CompanionClient({
     avatar.setSkin(ROISIN_SKIN)
 
     history
-      .filter((message) => message.type !== 'builder_prompt')
+      .filter((message) => message.kind !== 'builder_prompt')
       .forEach((message) =>
         avatar.addMessage(
-          message.text,
+          message.content,
           message.role === 'user' ? 'user' : 'assistant',
         ),
       )

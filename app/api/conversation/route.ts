@@ -2,20 +2,21 @@ import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
 import {
-  appendConversationMessages,
-  createMessage,
-  getConversationHistory,
+  appendMessages,
+  getMessages,
+  recordBuild,
 } from '@/server/ConversationService'
 import {
+  awardXp,
   getCurrentPet,
   getPetInformation,
-  modifyPetInformation,
 } from '@/server/PetService'
 import { composeReply } from '@/server/roisin'
+import { PetMoodSchema, type NewMessage } from '@/server/types'
 
 /**
- * Turns one spoken request into Roisin's reply plus, when she has enough to go
- * on, an instruction for the desktop shell to type into native.builder.
+ * Turns one spoken request into Roisin's reply and, when she has enough to go
+ * on, an instruction for the shell to type into native.builder.
  */
 const ConversationRequestSchema = z
   .object({
@@ -24,22 +25,9 @@ const ConversationRequestSchema = z
   })
   .strict()
 
-/** XP awarded per exchange. Builds are worth more than chat. */
+/** Builds are worth more than chat, so shipping something moves the meter. */
 const XP_PER_CHAT = 2
 const XP_PER_BUILD = 10
-
-/** Roisin's mood vocabulary, matching the pet spritesheet states. */
-const MOODS = new Set([
-  'idle',
-  'happy',
-  'sad',
-  'angry',
-  'curious',
-  'thinking',
-  'love',
-  'confused',
-  'celebrate',
-])
 
 export async function POST(request: Request) {
   let body: unknown
@@ -76,7 +64,7 @@ export async function POST(request: Request) {
   let history
 
   try {
-    history = await getConversationHistory(pet.id)
+    history = await getMessages(pet.id)
   } catch (error) {
     console.error('[CONVERSATION-ROUTE] history', error)
     return NextResponse.json(
@@ -88,7 +76,7 @@ export async function POST(request: Request) {
   let reply
 
   try {
-    reply = await composeReply(parsed.data.text, history.messages)
+    reply = await composeReply(parsed.data.text, history)
   } catch (error) {
     console.error('[CONVERSATION-ROUTE] compose', error)
     return NextResponse.json(
@@ -97,40 +85,50 @@ export async function POST(request: Request) {
     )
   }
 
-  const messages = [
-    await createMessage('user', parsed.data.text, { type: 'transcript' }),
-    await createMessage('assistant', reply.say, { type: 'text' }),
+  const toWrite: NewMessage[] = [
+    { role: 'user', kind: 'transcript', content: parsed.data.text },
+    { role: 'assistant', kind: 'text', content: reply.say },
   ]
 
   if (reply.builderPrompt) {
-    messages.push(
-      await createMessage('assistant', reply.builderPrompt, {
-        type: 'builder_prompt',
-      }),
-    )
+    toWrite.push({
+      role: 'assistant',
+      kind: 'builder_prompt',
+      content: reply.builderPrompt,
+    })
   }
 
+  let buildId: string | null = null
+
   try {
-    await appendConversationMessages(pet.id, messages)
+    const written = await appendMessages(pet.id, toWrite)
+
+    if (reply.builderPrompt) {
+      const promptMessage = written.find((m) => m.kind === 'builder_prompt')
+      const build = await recordBuild(pet.id, reply.builderPrompt, promptMessage?.id)
+      buildId = build?.id ?? null
+    }
   } catch (error) {
-    // The reply is still useful even if persistence failed, so this is logged
-    // rather than turned into an error the user hears.
+    // The reply is still worth delivering; losing the log is not worth
+    // turning into an error the user hears.
     console.error('[CONVERSATION-ROUTE] persist', error)
   }
 
-  const awardedXp = reply.builderPrompt ? XP_PER_BUILD : XP_PER_CHAT
-  const mood = MOODS.has(reply.mood) ? reply.mood : 'idle'
+  const mood = PetMoodSchema.safeParse(reply.mood)
   let xp = pet.xp
+  let level = pet.level
+  const awardedXp = reply.builderPrompt ? XP_PER_BUILD : XP_PER_CHAT
 
   try {
-    const updated = await modifyPetInformation({
-      id: pet.id,
-      xp: pet.xp + awardedXp,
-      mood,
-    })
+    const updated = await awardXp(
+      pet.id,
+      awardedXp,
+      mood.success ? mood.data : undefined,
+    )
     xp = updated.xp
+    level = updated.level
   } catch (error) {
-    console.error('[CONVERSATION-ROUTE] pet update', error)
+    console.error('[CONVERSATION-ROUTE] award xp', error)
   }
 
   return NextResponse.json(
@@ -138,8 +136,9 @@ export async function POST(request: Request) {
       reply: reply.say,
       action: reply.action,
       builderPrompt: reply.builderPrompt,
-      mood,
-      pet: { id: pet.id, name: pet.pet_name, xp, awardedXp },
+      buildId,
+      mood: mood.success ? mood.data : 'idle',
+      pet: { id: pet.id, name: pet.name, xp, level, awardedXp },
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )

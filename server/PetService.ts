@@ -1,45 +1,28 @@
 'use server'
 
-import { ModifyPetSchema, PetSchema, type ModifyPet, type Pet } from './types'
+import { ModifyPetSchema, PetSchema, type ModifyPet, type Pet, type PetMood } from './types'
 import { createClient, getUser } from './server'
 
-const PET_COLUMNS = 'id, user_id, pet_name, xp, spritesheet_url, mood, created_at, updated_at'
+const PET_COLUMNS =
+  'id, user_id, name, skin, xp, level, mood, created_at, updated_at'
 
 function parsePet(data: unknown): Pet {
   const pet = PetSchema.safeParse(data)
 
   if (!pet.success) {
     console.error(`[PET-ERROR] parse: ${pet.error.message}`)
-    throw new Error('Something went wrong parsing pet response to Pet Schema!')
+    throw new Error('Could not read the companion record.')
   }
 
   return pet.data
 }
 
-export async function getPetInformation(petId: string): Promise<Pet> {
-  const user = await getUser()
-  const client = await createClient()
-
-  const { data, error } = await client
-    .from('pets')
-    .select(PET_COLUMNS)
-    .eq('id', petId)
-    .eq('user_id', user.id)
-    .maybeSingle()
-
-  if (error || !data) {
-    console.error(`[PET-ERROR] fetch: ${error?.message ?? 'pet not found'}`)
-    throw new Error('Something went wrong while fetching pet from Pets!')
-  }
-
-  return parsePet(data)
-}
-
 /**
  * Returns the signed-in user's companion.
  *
- * A database trigger provisions a pet on sign-up, so this normally just reads.
- * The insert path covers accounts created before that trigger existed.
+ * A database trigger provisions one on sign-up and `pets.user_id` is unique,
+ * so this normally just reads. The insert covers accounts created before the
+ * trigger existed.
  */
 export async function getCurrentPet(): Promise<Pet> {
   const user = await getUser()
@@ -49,13 +32,11 @@ export async function getCurrentPet(): Promise<Pet> {
     .from('pets')
     .select(PET_COLUMNS)
     .eq('user_id', user.id)
-    .order('created_at', { ascending: true })
-    .limit(1)
     .maybeSingle()
 
   if (error) {
-    console.error(`[PET-ERROR] fetch current: ${error.message}`)
-    throw new Error('Something went wrong while fetching your companion!')
+    console.error(`[PET-ERROR] fetch: ${error.message}`)
+    throw new Error('Could not load your companion.')
   }
 
   if (data) return parsePet(data)
@@ -71,17 +52,26 @@ export async function getCurrentPet(): Promise<Pet> {
     throw new Error('Could not create your companion.')
   }
 
-  const pet = parsePet(created)
+  return parsePet(created)
+}
 
-  const { error: conversationError } = await client
-    .from('conversations')
-    .insert({ pet_id: pet.id, user_id: user.id })
+export async function getPetInformation(petId: string): Promise<Pet> {
+  const user = await getUser()
+  const client = await createClient()
 
-  if (conversationError) {
-    console.error(`[PET-ERROR] provision conversation: ${conversationError.message}`)
+  const { data, error } = await client
+    .from('pets')
+    .select(PET_COLUMNS)
+    .eq('id', petId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error(`[PET-ERROR] fetch by id: ${error?.message ?? 'not found'}`)
+    throw new Error('Companion not found.')
   }
 
-  return pet
+  return parsePet(data)
 }
 
 export async function modifyPetInformation(input: ModifyPet): Promise<Pet> {
@@ -89,7 +79,7 @@ export async function modifyPetInformation(input: ModifyPet): Promise<Pet> {
 
   if (!parsedInput.success) {
     console.error(`[PET-ERROR] input: ${parsedInput.error.message}`)
-    throw new Error('Invalid input passed to modifyPetInformation!')
+    throw new Error('Invalid input passed to modifyPetInformation.')
   }
 
   const { id, ...updates } = parsedInput.data
@@ -111,7 +101,37 @@ export async function modifyPetInformation(input: ModifyPet): Promise<Pet> {
 
   if (error || !data) {
     console.error(`[PET-ERROR] update: ${error?.message}`)
-    throw new Error('Something went wrong while modifying pet in Pets!')
+    throw new Error('Could not update your companion.')
+  }
+
+  return parsePet(data)
+}
+
+/**
+ * Adds XP and optionally sets the mood, in a single statement.
+ *
+ * Read-modify-write from the application would let two replies arriving at
+ * once read the same starting value and lose one of the awards, so the
+ * increment happens in the database.
+ */
+export async function awardXp(
+  petId: string,
+  amount: number,
+  mood?: PetMood,
+): Promise<Pet> {
+  const client = await createClient()
+
+  const { data, error } = await client
+    .rpc('award_xp', {
+      target_pet: petId,
+      amount,
+      next_mood: mood ?? null,
+    })
+    .maybeSingle()
+
+  if (error || !data) {
+    console.error(`[PET-ERROR] award xp: ${error?.message}`)
+    throw new Error('Could not award experience.')
   }
 
   return parsePet(data)
