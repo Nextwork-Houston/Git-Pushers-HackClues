@@ -1,7 +1,12 @@
--- Orbit / Roisin baseline schema.
+-- Orbit / Roisin baseline schema, for a fresh database.
 --
 -- Every table is owner-scoped and protected by row level security, so the
 -- public anon key can never read another account's pet or conversation.
+--
+-- Note: the statements below are guarded with "if not exists", so this file
+-- does nothing at all on a database whose tables already exist — including
+-- leaving them missing any column added here. Apply 0002 as well; it adapts
+-- an existing schema instead of assuming it can create one.
 
 create extension if not exists "pgcrypto";
 
