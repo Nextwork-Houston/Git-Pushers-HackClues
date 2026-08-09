@@ -105,7 +105,11 @@ export async function appendMessages(
 export async function recordBuild(
   petId: string,
   prompt: string,
-  messageId?: string,
+  options: {
+    messageId?: string
+    request?: string
+    sources?: { title: string; url: string; snippet?: string }[]
+  } = {},
 ): Promise<Build | null> {
   const user = await getUser()
   const client = await createClient()
@@ -115,7 +119,9 @@ export async function recordBuild(
     .insert({
       pet_id: petId,
       user_id: user.id,
-      message_id: messageId ?? null,
+      message_id: options.messageId ?? null,
+      request: options.request ?? null,
+      sources: options.sources ?? [],
       prompt,
     })
     .select()
@@ -124,6 +130,31 @@ export async function recordBuild(
   if (error) {
     // A build that fails to log should not stop the build from being sent.
     console.error(`[BUILD-ERROR] insert: ${error.message}`)
+    return null
+  }
+
+  return data as Build
+}
+
+/**
+ * Reads one build belonging to the signed-in account.
+ *
+ * Scaffolding re-reads the build rather than trusting the request body, so
+ * what gets committed to GitHub is what was actually recorded here.
+ */
+export async function getBuild(buildId: string): Promise<Build | null> {
+  const user = await getUser()
+  const client = await createClient()
+
+  const { data, error } = await client
+    .from('builds')
+    .select()
+    .eq('id', buildId)
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (error || !data) {
+    if (error) console.error(`[BUILD-ERROR] fetch: ${error.message}`)
     return null
   }
 

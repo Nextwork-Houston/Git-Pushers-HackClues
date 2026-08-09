@@ -157,7 +157,11 @@ export async function POST(request: Request) {
 
     if (reply.builderPrompt) {
       const promptMessage = written.find((m) => m.kind === 'builder_prompt')
-      const build = await recordBuild(pet.id, reply.builderPrompt, promptMessage?.id)
+      const build = await recordBuild(pet.id, reply.builderPrompt, {
+        messageId: promptMessage?.id,
+        request: parsed.data.text,
+        sources,
+      })
       buildId = build?.id ?? null
     }
   } catch (error) {

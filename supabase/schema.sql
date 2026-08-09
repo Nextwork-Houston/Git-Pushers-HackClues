@@ -123,7 +123,12 @@ create table public.builds (
   pet_id       uuid not null references public.pets (id) on delete cascade,
   user_id      uuid not null references auth.users (id) on delete cascade,
   message_id   uuid references public.messages (id) on delete set null,
+  -- The request in the user's own words, kept so a spec can quote it after
+  -- the voice session is gone.
+  request      text,
   prompt       text not null check (char_length(prompt) between 1 and 20000),
+  -- What research the instruction was grounded in, if any.
+  sources      jsonb not null default '[]'::jsonb,
   status       public.build_status not null default 'pending',
   error        text,
   delivered_at timestamptz,
