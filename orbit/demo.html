@@ -538,6 +538,67 @@
       orbit.setListening(false);
     }
 
+    /**
+     * Gets a session without asking for one.
+     *
+     * Roisin cannot hear or think without an account — Speechmatics tokens are
+     * minted per user, and her memory hangs off a pet row. Making a visitor
+     * fill in a form before she will listen contradicts the entire premise, so
+     * a guest account is created silently on first use.
+     */
+    let sessionReady = null;
+
+    function ensureSession() {
+      sessionReady ||= fetch('/api/auth/guest', { method: 'POST' })
+        .then((response) => response.ok)
+        .catch(() => false);
+
+      return sessionReady;
+    }
+
+    /** Sends a finished transcript to Roisin and plays back what she decides. */
+    async function askRoisin(text) {
+      orbit.startWaiting({ openChat: true });
+
+      try {
+        const response = await fetch('/api/conversation', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ text })
+        });
+        const payload = await response.json();
+
+        if (!response.ok) throw new Error(payload.error || 'Roisin could not reply.');
+
+        orbit.stopWaiting({ state: 'speaking' });
+        orbit.addMessage(payload.reply, 'assistant');
+        if (showcaseVoice) showcaseVoice.speak(payload.reply);
+
+        if (payload.sources && payload.sources.length) {
+          orbit.addMessage(
+            'I looked that up: ' + payload.sources.map((s) => s.title).slice(0, 3).join(', '),
+            'assistant'
+          );
+        }
+
+        if (payload.builderPrompt) {
+          orbit.playAction('dance', { duration: 1800 });
+          orbit.addMessage(payload.builderPrompt, 'assistant');
+          navigator.clipboard?.writeText(payload.builderPrompt).catch(() => {});
+          orbit.addMessage(
+            'Copied. Paste it into native.builder, or install the desktop app and I will type it in for you.',
+            'assistant'
+          );
+        }
+
+        setTimeout(() => orbit.setState('idle'), 1400);
+      } catch (error) {
+        orbit.stopWaiting({ state: null });
+        orbit.playAction('tantrum', { duration: 1400 });
+        orbit.addMessage(error.message, 'assistant');
+      }
+    }
+
     orbit.addEventListener('speech-toggle-request', async (event) => {
       if (!event.detail.active) {
         stopShowcaseSpeech();
@@ -555,6 +616,9 @@
       }
 
       orbit.setState('listening');
+      // A guest account is created before the first token request, so
+      // Speechmatics is available rather than falling back to the browser.
+      await ensureSession();
       showcaseBridge = new window.OrbitSpeechBridge({ tokenUrl: '/api/speech/token' });
 
       try {
@@ -597,12 +661,7 @@
       orbit.setTranscript(event.detail.text, { role: 'user', final: true });
       orbit.setState('speaking');
 
-      const reply =
-        'Heard you. Sign in to the companion and I will turn that into a native.builder instruction.';
-      orbit.addMessage(reply, 'assistant');
-      if (showcaseVoice) showcaseVoice.speak(reply);
-
-      setTimeout(() => orbit.setState('idle'), 1600);
+      askRoisin(event.detail.text);
     });
 
     orbit.addEventListener('avatar-action', (event) => {

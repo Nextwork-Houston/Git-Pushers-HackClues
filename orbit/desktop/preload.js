@@ -18,6 +18,7 @@ contextBridge.exposeInMainWorld("orbitDesktop", {
   tts: (text, voice) => ipcRenderer.invoke("orbit:tts", String(text ?? ""), String(voice ?? "sarah")),
   patchBuild: (url, status, error) => ipcRenderer.invoke("orbit:patch-build", String(url), String(status), error ? String(error) : undefined),
   health: () => ipcRenderer.invoke("orbit:health"),
+  guest: () => ipcRenderer.invoke("orbit:guest"),
   signIn: () => ipcRenderer.invoke("orbit:sign-in"),
   openBuilder: () => ipcRenderer.invoke("orbit:open-builder"),
   sendToBuilder: (prompt) => ipcRenderer.invoke("orbit:send-to-builder", String(prompt ?? "")),

@@ -156,6 +156,19 @@ async function fetchSpeech(url, text, voice) {
   }
 }
 
+/**
+ * Claims a guest account for this machine.
+ *
+ * Roisin needs a session to hear or think at all. Demanding a sign-up form
+ * before she will listen contradicts the premise, so the shell takes an
+ * anonymous account silently and keeps it in its persistent partition.
+ */
+async function ensureGuest(config) {
+  const origin = baseOrigin(config);
+  if (!origin) return { ok: false, reason: "no-backend-configured" };
+  return apiFetch(origin + "/api/auth/guest", { method: "POST", body: {} });
+}
+
 async function isSignedIn(config) {
   const origin = baseOrigin(config);
 
@@ -169,4 +182,4 @@ async function isSignedIn(config) {
   return result.status !== 401
 }
 
-module.exports = { apiFetch, fetchSpeech, isSignedIn, openSignIn, SESSION_PARTITION };
+module.exports = { apiFetch, ensureGuest, fetchSpeech, isSignedIn, openSignIn, SESSION_PARTITION };

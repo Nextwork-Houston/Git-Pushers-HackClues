@@ -304,6 +304,7 @@ if (!hasSingleInstanceLock) {
     const base = String(config.conversationUrl || "").replace(/\/api\/conversation\/?$/, "");
     return base ? apiSession.apiFetch(base + "/api/system/health") : { ok: false, status: 0 };
   });
+  ipcMain.handle("orbit:guest", () => apiSession.ensureGuest(getConfig()));
   ipcMain.handle("orbit:sign-in", () => apiSession.openSignIn(getConfig()));
   ipcMain.handle("orbit:open-builder", () => {
     builder.openBuilderWindow(getConfig());

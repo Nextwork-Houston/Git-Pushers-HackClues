@@ -155,6 +155,10 @@ async function startListening() {
     return;
   }
 
+  // Take a guest account rather than demanding a form. Roisin cannot hear
+  // without a session, and "just talk to me" should not begin with a login.
+  await window.orbitDesktop.guest().catch(() => {});
+
   speechBridge = new window.OrbitSpeechBridge({
     // The token is fetched by the main process, which has the session.
     getToken: async (type) => {
