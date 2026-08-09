@@ -3,6 +3,7 @@
 const orbit = document.querySelector("#orbit");
 const desktopShell = document.querySelector(".desktop-shell");
 let speechBridge = null;
+let voice = null;
 let recognitionActive = false;
 let config = {};
 let orbitScale = Number(localStorage.getItem("orbit-desktop-scale")) || 1;
@@ -55,22 +56,29 @@ async function sendConversation(text) {
   orbit.startWaiting({ openChat: true });
 
   try {
-    const response = await fetch(config.conversationUrl, {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ text }),
-    });
+    // The main process holds the session; the renderer has no cookie jar.
+    const outcome = await window.orbitDesktop.conversation(text);
 
-    const result = await response.json().catch(() => ({}));
+    if (outcome.status === 401) {
+      orbit.stopWaiting({ state: null });
+      orbit.addMessage("Sign in and I can start building for you.", "assistant");
+      await window.orbitDesktop.signIn();
+      return;
+    }
 
-    if (!response.ok) {
-      throw new Error(result.error || `Conversation backend returned ${response.status}.`);
+    const result = outcome.data || {};
+
+    if (!outcome.ok) {
+      throw new Error(result.error || outcome.error || `Backend returned ${outcome.status}.`);
     }
 
     const reply = result.reply || result.message || result.text;
     orbit.stopWaiting({ state: "speaking" });
-    if (reply) orbit.addMessage(reply, "assistant");
+
+    if (reply) {
+      orbit.addMessage(reply, "assistant");
+      if (voice) voice.speak(reply);
+    }
 
     if (result.builderPrompt) {
       await deliverToBuilder(result.builderPrompt);
@@ -129,7 +137,21 @@ async function startListening() {
   }
 
   speechBridge = new window.OrbitSpeechBridge({
-    tokenUrl: config.speechTokenUrl || "",
+    // The token is fetched by the main process, which has the session.
+    getToken: async (type) => {
+      const outcome = await window.orbitDesktop.speechToken(type);
+
+      if (outcome.status === 401) {
+        await window.orbitDesktop.signIn();
+        throw new Error("Sign in to use Speechmatics.");
+      }
+
+      if (!outcome.ok) {
+        throw new Error((outcome.data && outcome.data.error) || "Could not get a speech token.");
+      }
+
+      return outcome.data;
+    },
     language: (config.language || "en-US").split("-")[0],
     // Flow speaks its own replies, which would talk over the backend's, so
     // the desktop shell uses transcription only.
@@ -296,6 +318,23 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   config = loadedConfig || {};
   if (config.skin && !orbit.hasAttribute("skin")) orbit.setSkin(config.skin, { persist: false });
   orbit.actions = Array.isArray(config.actions) ? config.actions : [];
+
+  if (window.OrbitVoice) {
+    voice = new window.OrbitVoice({
+      enabled: config.voiceReplies !== false,
+      skin: orbit.skin,
+      // Synthesis runs through the main process, which holds the session.
+      fetchAudio: async (text, voiceId) => {
+        const outcome = await window.orbitDesktop.tts(text, voiceId);
+        if (!outcome.ok) throw new Error(outcome.error || `Speech failed (${outcome.status}).`);
+        return outcome.audio;
+      },
+    });
+
+    // Each avatar keeps its own voice, so switching skin switches speaker.
+    orbit.addEventListener("avatar-skin-change", (event) => voice.setSkin(event.detail.skin));
+  }
+
   updateScale(orbitScale);
   enableDirectDragging();
   enableTransparentClickThrough();

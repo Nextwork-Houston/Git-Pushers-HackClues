@@ -43,9 +43,16 @@ type SpeechBridge = {
   sendText(text: string, options?: { interrupt?: boolean }): boolean
 }
 
+type Voice = {
+  speak(text: string): Promise<string | null>
+  setSkin(skin: string): void
+  stop(): void
+}
+
 declare global {
   interface Window {
     OrbitSpeechBridge?: new (options: Record<string, unknown>) => SpeechBridge
+    OrbitVoice?: new (options: Record<string, unknown>) => Voice
   }
 }
 
@@ -60,6 +67,7 @@ export function CompanionClient({
 }) {
   const avatarRef = useRef<AvatarElement | null>(null)
   const bridgeRef = useRef<SpeechBridge | null>(null)
+  const voiceRef = useRef<Voice | null>(null)
   const [xp, setXp] = useState(pet.xp)
   const [listening, setListening] = useState(false)
   const [status, setStatus] = useState('Ready when you are')
@@ -98,6 +106,7 @@ export function CompanionClient({
 
         avatar.stopWaiting({ state: 'speaking' })
         avatar.addMessage(payload.reply, 'assistant')
+        voiceRef.current?.speak(payload.reply)
         if (typeof payload.pet?.xp === 'number') setXp(payload.pet.xp)
 
         if (payload.builderPrompt) {
@@ -137,7 +146,11 @@ export function CompanionClient({
 
   // Replay stored history once the custom element has upgraded.
   useEffect(() => {
-    if (scriptsReady < 2) return
+    if (scriptsReady < 3) return
+
+    if (window.OrbitVoice && !voiceRef.current) {
+      voiceRef.current = new window.OrbitVoice({ skin: ROISIN_SKIN })
+    }
 
     const avatar = document.querySelector<AvatarElement>('#roisin')
     if (!avatar) return
@@ -157,7 +170,7 @@ export function CompanionClient({
 
   // Wire the speech bridge's events into the avatar.
   useEffect(() => {
-    if (scriptsReady < 2) return
+    if (scriptsReady < 3) return
 
     const onPartial = (event: Event) => {
       const detail = (event as CustomEvent<{ text: string }>).detail
@@ -247,6 +260,11 @@ export function CompanionClient({
       />
       <Script
         src="/orbit/speech-bridge.js"
+        strategy="afterInteractive"
+        onReady={() => setScriptsReady((count) => count + 1)}
+      />
+      <Script
+        src="/orbit/voice.js"
         strategy="afterInteractive"
         onReady={() => setScriptsReady((count) => count + 1)}
       />

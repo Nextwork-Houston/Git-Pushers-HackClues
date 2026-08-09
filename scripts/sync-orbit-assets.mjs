@@ -25,6 +25,7 @@ const TARGET = join(ROOT, 'public', 'orbit')
 const PATTERNS = [
   /^avatar-companion\.js$/,
   /^speech-bridge\.js$/,
+  /^voice\.js$/,
   /^demo\.html$/,
   /^service-worker\.js$/,
   /^manifest\.webmanifest$/,

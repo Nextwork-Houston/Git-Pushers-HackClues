@@ -12,7 +12,8 @@
     "typecheck": "tsc --noEmit",
     "sync:orbit": "node scripts/sync-orbit-assets.mjs",
     "sync:orbit:check": "node scripts/sync-orbit-assets.mjs --check",
-    "verify": "npm run typecheck && npm run test && npm run sync:orbit:check && npm run build"
+    "verify": "npm run typecheck && npm run test && npm run sync:orbit:check && npm run build",
+    "package:desktop": "node scripts/package-desktop.mjs"
   },
   "dependencies": {
     "@octokit/auth-app": "^8.3.0",

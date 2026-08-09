@@ -19,5 +19,7 @@
       "icon": "spark",
       "desktopAction": "open-builder"
     }
-  ]
+  ],
+  "ttsUrl": "https://git-pushers-hackclues-orbit.vercel.app/api/speech/tts",
+  "voiceReplies": true
 }

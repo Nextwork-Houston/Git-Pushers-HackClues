@@ -357,6 +357,7 @@
 
   <script src="./avatar-companion.js"></script>
   <script src="./speech-bridge.js"></script>
+  <script src="./voice.js"></script>
   <script>
     const orbit = document.querySelector('#orbit');
     const waitingMixButton = document.querySelector('#waiting-mix');
@@ -563,14 +564,29 @@
       orbit.setTranscript(event.detail.text, { role: 'user' });
     });
 
+    // Each avatar has its own voice. On the public showcase there is no
+    // session, so Speechmatics synthesis is unavailable and this falls back
+    // to the browser's own speech engine.
+    const showcaseVoice = window.OrbitVoice
+      ? new window.OrbitVoice({ skin: orbit.skin })
+      : null;
+
+    if (showcaseVoice) {
+      orbit.addEventListener('avatar-skin-change', (event) =>
+        showcaseVoice.setSkin(event.detail.skin)
+      );
+    }
+
     window.addEventListener('speechmatics.final', (event) => {
       if (!event.detail.text) return;
       orbit.setTranscript(event.detail.text, { role: 'user', final: true });
       orbit.setState('speaking');
-      orbit.addMessage(
-        'Heard you. Sign in to the companion and I will turn that into a native.builder instruction.',
-        'assistant'
-      );
+
+      const reply =
+        'Heard you. Sign in to the companion and I will turn that into a native.builder instruction.';
+      orbit.addMessage(reply, 'assistant');
+      if (showcaseVoice) showcaseVoice.speak(reply);
+
       setTimeout(() => orbit.setState('idle'), 1600);
     });
 

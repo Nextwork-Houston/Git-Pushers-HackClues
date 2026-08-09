@@ -4,6 +4,7 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } =
 const fs = require("node:fs");
 const path = require("node:path");
 
+const apiSession = require("./api-session");
 const builder = require("./builder-window");
 
 app.setName("Orbit");
@@ -272,6 +273,28 @@ if (!hasSingleInstanceLock) {
   ipcMain.handle("orbit:get-config", () => getConfig());
   ipcMain.handle("orbit:get-app-info", () => ({ version: app.getVersion(), userDataPath: app.getPath("userData") }));
   ipcMain.handle("orbit:set-launch-at-startup", (_event, enabled) => setLaunchAtStartup(enabled));
+  // The renderer runs from file:// and has no session, so the main process
+  // makes the authenticated calls on its behalf. Both handlers take only the
+  // payload; the URLs come from config, never from the renderer.
+  ipcMain.handle("orbit:speech-token", (_event, type) => {
+    const config = getConfig();
+    return apiSession.apiFetch(config.speechTokenUrl, {
+      method: "POST",
+      body: { type: type === "flow" ? "flow" : "rt" },
+    });
+  });
+  ipcMain.handle("orbit:conversation", (_event, text) => {
+    const config = getConfig();
+    return apiSession.apiFetch(config.conversationUrl, {
+      method: "POST",
+      body: { text: String(text ?? "") },
+    });
+  });
+  ipcMain.handle("orbit:tts", (_event, text, voice) => {
+    const config = getConfig();
+    return apiSession.fetchSpeech(config.ttsUrl, String(text ?? ""), String(voice ?? "sarah"));
+  });
+  ipcMain.handle("orbit:sign-in", () => apiSession.openSignIn(getConfig()));
   ipcMain.handle("orbit:open-builder", () => {
     builder.openBuilderWindow(getConfig());
     return true;

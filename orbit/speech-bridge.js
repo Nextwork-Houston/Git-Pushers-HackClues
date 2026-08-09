@@ -161,6 +161,7 @@
     constructor(options) {
       const settings = options || {}
       this.tokenUrl = settings.tokenUrl || '/api/speech/token'
+      this.getToken = settings.getToken || null
       this.language = settings.language || 'en'
       this.tools = settings.tools || []
       this.onToolInvoke = settings.onToolInvoke || null
@@ -176,7 +177,16 @@
       this.active = false
     }
 
+    /**
+     * Obtains a Speechmatics JWT.
+     *
+     * `getToken` exists for the Electron shell, whose renderer runs from
+     * file:// and therefore cannot carry a session cookie. There the main
+     * process fetches the token and hands back the parsed body.
+     */
     async requestToken(type) {
+      if (this.getToken) return this.getToken(type)
+
       const response = await fetch(this.tokenUrl, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
