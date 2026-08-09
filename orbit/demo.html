@@ -599,8 +599,20 @@
       orbit.addMessage('Still not connected — say it again once you are done and I will carry on.', 'assistant');
     }
 
-    /** Sends a finished transcript to Roisin and plays back what she decides. */
+    /**
+     * Sends a finished transcript to Roisin and plays back what she decides.
+     *
+     * Single-flight: a request already in progress means anything arriving
+     * behind it is part of the same thought, not a new one. Without this a
+     * transport that over-finalises produces overlapping replies and voices,
+     * which is a failure the transport should not be able to cause.
+     */
+    let pending = false;
+
     async function askRoisin(text) {
+      if (pending) return;
+      pending = true;
+
       orbit.startWaiting({ openChat: true });
 
       try {
@@ -704,6 +716,15 @@
     // does the opposite of what it looks like it will do.
     window.addEventListener('speech.end', stopShowcaseSpeech);
     window.addEventListener('speech.error', stopShowcaseSpeech);
+
+    window.addEventListener('speech.transport', (event) => {
+      const labels = {
+        flow: 'Speechmatics Flow',
+        rt: 'Speechmatics',
+        browser: 'your browser (Speechmatics unavailable)'
+      };
+      orbit.addMessage('Listening through ' + (labels[event.detail.transport] || event.detail.transport) + '.', 'assistant');
+    });
 
     window.addEventListener('speechmatics.partial', (event) => {
       orbit.setTranscript(event.detail.text, { role: 'user' });

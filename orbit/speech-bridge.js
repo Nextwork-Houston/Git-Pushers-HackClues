@@ -528,11 +528,18 @@
           const result = event.results[index]
           const text = result[0]?.transcript || ''
 
-          if (result.isFinal) emit('speechmatics.final', { text: text.trim() })
+          // Through the same buffer as Speechmatics. The browser engine
+          // finalises far more aggressively — often a word at a time — so
+          // emitting these directly turned one sentence into one request per
+          // word, each with its own reply and its own voice.
+          if (result.isFinal) this.bufferFinal(text)
           else partial += text
         }
 
-        if (partial) emit('speechmatics.partial', { text: partial.trim() })
+        if (partial) {
+          const sentence = this.utterance ? `${this.utterance} ${partial}` : partial
+          emit('speechmatics.partial', { text: sentence.trim() })
+        }
       }
 
       engine.onerror = (event) => {
