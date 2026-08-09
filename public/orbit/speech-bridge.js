@@ -27,6 +27,8 @@
   const SAMPLE_RATE = 16000
   /** Frames per audio chunk sent upstream. 4096 keeps latency low. */
   const FRAME_SIZE = 4096
+  /** How long to wait for more of a sentence before treating it as finished. */
+  const UTTERANCE_TIMEOUT_MS = 1200
 
   function emit(name, detail) {
     window.dispatchEvent(new CustomEvent(name, { detail: detail || {} }))
@@ -175,6 +177,39 @@
       this.transport = null
       this.serverSeqNo = 0
       this.active = false
+
+      /** Segments of the sentence currently being spoken. */
+      this.utterance = ''
+      this.utteranceTimer = null
+    }
+
+    /**
+     * Collects final transcripts into one utterance before emitting.
+     *
+     * Speechmatics finalises in segments, so a single spoken sentence arrives
+     * as several `AddTranscript` messages. Emitting each one separately made
+     * the app treat one request as several — several chat bubbles, several
+     * replies, and several voices talking over each other.
+     *
+     * `EndOfUtterance` is the authoritative boundary, but it only arrives when
+     * the server is configured for it and there is a real pause, so a debounce
+     * closes the utterance if it never comes.
+     */
+    bufferFinal(text) {
+      const trimmed = String(text || '').trim()
+      if (trimmed) this.utterance = this.utterance ? `${this.utterance} ${trimmed}` : trimmed
+
+      clearTimeout(this.utteranceTimer)
+      this.utteranceTimer = setTimeout(() => this.flushUtterance(), UTTERANCE_TIMEOUT_MS)
+    }
+
+    flushUtterance() {
+      clearTimeout(this.utteranceTimer)
+
+      const text = (this.utterance || '').trim()
+      this.utterance = ''
+
+      if (text) emit('speechmatics.final', { text })
     }
 
     /**
@@ -331,14 +366,19 @@
       }
 
       switch (message.message) {
-        case 'AddPartialTranscript':
-          emit('speechmatics.partial', { text: resultsToText(message) })
-          break
-        case 'AddTranscript': {
-          const text = resultsToText(message)
-          if (text) emit('speechmatics.final', { text })
+        case 'AddPartialTranscript': {
+          const partial = resultsToText(message)
+          emit('speechmatics.partial', {
+            text: this.utterance ? `${this.utterance} ${partial}` : partial,
+          })
           break
         }
+        case 'AddTranscript':
+          this.bufferFinal(resultsToText(message))
+          break
+        case 'EndOfUtterance':
+          this.flushUtterance()
+          break
         case 'ResponseStarted':
           emit('speech.reply', { text: message.content, final: false })
           break
@@ -448,10 +488,15 @@
         }
 
         if (message.message === 'AddPartialTranscript') {
-          emit('speechmatics.partial', { text: resultsToText(message) })
+          const partial = resultsToText(message)
+          // Show the sentence so far, not just the segment in flight.
+          emit('speechmatics.partial', {
+            text: this.utterance ? `${this.utterance} ${partial}` : partial,
+          })
         } else if (message.message === 'AddTranscript') {
-          const text = resultsToText(message)
-          if (text) emit('speechmatics.final', { text })
+          this.bufferFinal(resultsToText(message))
+        } else if (message.message === 'EndOfUtterance') {
+          this.flushUtterance()
         } else if (message.message === 'Error') {
           emit('speech.error', { message: message.reason })
         }
@@ -560,6 +605,10 @@
     stop() {
       if (!this.active) return
       this.active = false
+
+      // A half-finished sentence must not survive into the next session.
+      clearTimeout(this.utteranceTimer)
+      this.utterance = ''
 
       if (this.transport === 'flow') this.send({ message: 'AudioEnded', last_seq_no: 0 })
       if (this.recognition) {

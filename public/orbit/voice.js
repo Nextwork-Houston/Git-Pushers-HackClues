@@ -129,9 +129,15 @@
 
       this.stop()
 
+      // Synthesis is a network round trip, so a newer line can be requested
+      // while an older one is still in flight. Without this the older audio
+      // would start playing after the newer, and the two would overlap.
+      const generation = (this.generation || 0) + 1
+      this.generation = generation
+
       if (!this.remoteUnavailable) {
         try {
-          await this._speakRemote(line)
+          await this._speakRemote(line, generation)
           return 'speechmatics'
         } catch (error) {
           // One failure is enough; every later reply goes straight to the
@@ -144,7 +150,7 @@
       return this._speakLocal(line) ? 'browser' : null
     }
 
-    async _speakRemote(text) {
+    async _speakRemote(text, generation) {
       const voiceId = this.voice.id
       let buffer
 
@@ -164,12 +170,18 @@
 
       if (!buffer || !buffer.byteLength) throw new Error('Empty audio response.')
 
+      // A newer line was requested while this one was being synthesised.
+      if (generation !== undefined && generation !== this.generation) return
+
       const AudioContextClass = window.AudioContext || window.webkitAudioContext
       this.context = this.context || new AudioContextClass()
 
       if (this.context.state === 'suspended') await this.context.resume()
 
       const decoded = await this.context.decodeAudioData(buffer.slice(0))
+
+      if (generation !== undefined && generation !== this.generation) return
+
       const source = this.context.createBufferSource()
       source.buffer = decoded
       source.connect(this.context.destination)
