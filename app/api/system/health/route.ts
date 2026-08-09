@@ -1,23 +1,29 @@
 import { NextResponse } from 'next/server'
 
+import {
+  brightDataApiKey,
+  githubAppCredentials,
+  llmApiKey,
+  llmBaseUrl,
+  llmModel,
+  speechmaticsApiKey,
+  supabaseConfigured,
+} from '@/server/env'
+
 /**
  * Reports which parts of the stack are actually wired up.
  *
  * Only reports whether a secret is present, never its value, so this is safe
- * to surface in Orbit's action menu.
+ * to surface in Orbit's action menu. The non-secret model settings are
+ * included because a wrong base URL looks identical to a missing key.
  */
 export async function GET() {
   const services = {
-    supabase: Boolean(
-      process.env.NEXT_PUBLIC_SUPABASE_URL &&
-        process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY,
-    ),
-    speechmatics: Boolean(process.env.SPEECHMATICS_API_KEY),
-    model: Boolean(process.env.LLM_API_KEY),
-    github: Boolean(
-      process.env.GITHUB_APP_ID && process.env.GITHUB_APP_PRIVATE_KEY,
-    ),
-    brightData: Boolean(process.env.BRIGHTDATA_API_KEY),
+    supabase: supabaseConfigured(),
+    speechmatics: Boolean(speechmaticsApiKey()),
+    model: Boolean(llmApiKey()),
+    github: Boolean(githubAppCredentials()),
+    brightData: Boolean(brightDataApiKey()),
   }
 
   const missing = Object.entries(services)
@@ -29,6 +35,7 @@ export async function GET() {
       status: missing.length === 0 ? 'ok' : 'degraded',
       services,
       missing,
+      model: { baseUrl: llmBaseUrl(), model: llmModel() },
     },
     { headers: { 'Cache-Control': 'no-store' } },
   )

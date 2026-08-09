@@ -1,3 +1,4 @@
+import { llmApiKey, llmBaseUrl, llmModel } from './env'
 import { messageText, type ConversationMessage } from './types'
 
 /**
@@ -34,8 +35,6 @@ Writing builderPrompt:
 
 Bias toward "build". A person talking to a software factory wants to see something appear.`
 
-const DEFAULT_BASE_URL = 'https://api.aimlapi.com/v1'
-const DEFAULT_MODEL = 'gpt-4o-mini'
 const REQUEST_TIMEOUT_MS = 30_000
 /** How much prior conversation Roisin is given for context. */
 const HISTORY_WINDOW = 12
@@ -99,13 +98,13 @@ export async function composeReply(
   transcript: string,
   history: ConversationMessage[],
 ): Promise<RoisinReply> {
-  const apiKey = process.env.LLM_API_KEY
+  const apiKey = llmApiKey()
 
   if (!apiKey) {
-    throw new Error('LLM_API_KEY is not configured.')
+    throw new Error('No model API key is configured (LLM_API_KEY or MLAI_API_KEY).')
   }
 
-  const baseUrl = (process.env.LLM_BASE_URL || DEFAULT_BASE_URL).replace(/\/$/, '')
+  const baseUrl = llmBaseUrl()
   const controller = new AbortController()
   const timeout = setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
 
@@ -118,7 +117,7 @@ export async function composeReply(
       },
       signal: controller.signal,
       body: JSON.stringify({
-        model: process.env.LLM_MODEL || DEFAULT_MODEL,
+        model: llmModel(),
         temperature: 0.6,
         response_format: { type: 'json_object' },
         messages: [

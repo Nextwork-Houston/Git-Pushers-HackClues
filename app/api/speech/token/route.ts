@@ -2,6 +2,7 @@ import { createSpeechmaticsJWT } from '@speechmatics/auth'
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
 
+import { speechmaticsApiKey } from '@/server/env'
 import { getUser } from '@/server/server'
 
 /**
@@ -34,10 +35,10 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const apiKey = process.env.SPEECHMATICS_API_KEY
+  const apiKey = speechmaticsApiKey()
 
   if (!apiKey) {
-    console.error('[SPEECH-TOKEN-ERROR] SPEECHMATICS_API_KEY is not configured')
+    console.error('[SPEECH-TOKEN-ERROR] no Speechmatics API key is configured')
     return NextResponse.json(
       { error: 'Speech is not configured on this server.' },
       { status: 503 },
