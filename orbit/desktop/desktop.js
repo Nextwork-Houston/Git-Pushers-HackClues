@@ -81,7 +81,10 @@ async function sendConversation(text) {
     }
 
     if (result.builderPrompt) {
-      await deliverToBuilder(result.builderPrompt);
+      const delivered = await deliverToBuilder(result.builderPrompt);
+      // Only the shell knows whether native.builder accepted it, so it is the
+      // only place that can resolve the build from "pending".
+      if (result.buildId) reportBuildStatus(result.buildId, delivered);
     }
 
     setTimeout(() => {
@@ -94,6 +97,15 @@ async function sendConversation(text) {
     orbit.addMessage(error.message, "assistant");
     scheduleAliveMode(1800);
   }
+}
+
+function reportBuildStatus(buildId, delivered, reason) {
+  if (!config.conversationUrl) return;
+
+  const base = config.conversationUrl.replace(/\/api\/conversation\/?$/, '');
+  window.orbitDesktop
+    .patchBuild(base + '/api/builds/' + buildId, delivered ? 'sent' : 'failed', reason)
+    .catch(() => {});
 }
 
 async function deliverToBuilder(prompt) {

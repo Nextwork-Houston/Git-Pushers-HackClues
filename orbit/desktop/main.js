@@ -294,6 +294,8 @@ if (!hasSingleInstanceLock) {
     const config = getConfig();
     return apiSession.fetchSpeech(config.ttsUrl, String(text ?? ""), String(voice ?? "sarah"));
   });
+  ipcMain.handle("orbit:patch-build", (_event, url, status, error) =>
+    apiSession.apiFetch(url, { method: "PATCH", body: error ? { status, error } : { status } }));
   ipcMain.handle("orbit:sign-in", () => apiSession.openSignIn(getConfig()));
   ipcMain.handle("orbit:open-builder", () => {
     builder.openBuilderWindow(getConfig());
