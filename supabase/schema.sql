@@ -49,7 +49,7 @@ create type public.avatar_skin as enum ('classic', 'electric', 'dove', 'pink');
 create type public.message_role as enum ('user', 'assistant', 'system');
 
 create type public.message_kind as enum (
-  'text', 'transcript', 'builder_prompt', 'tool_result', 'error'
+  'text', 'transcript', 'builder_prompt', 'research', 'tool_result', 'error'
 );
 
 create type public.build_status as enum ('pending', 'sent', 'failed');

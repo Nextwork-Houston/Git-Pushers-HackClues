@@ -23,6 +23,7 @@ Always reply with a JSON object and nothing else:
 
 Choose the action:
 - "build" when you have enough to give native.builder a concrete, self-contained instruction. Put that instruction in builderPrompt.
+- "research" when the request depends on facts you do not have: competitors, market data, pricing, current APIs, what similar products do, or anything the person asks you to look up. Put the search query in researchQuery and say you are looking it up. builderPrompt is null.
 - "ask" when one specific detail is genuinely missing and guessing it would waste a build. Ask for exactly one thing in "say". builderPrompt is null.
 - "chat" for greetings, questions about how things work, or encouragement. builderPrompt is null.
 
@@ -33,16 +34,23 @@ Writing builderPrompt:
 - Name a partner service explicitly when the user needs one: say "Speechmatics" for speech, "Supabase" for database, auth, or storage, "Bright Data" for web scraping. The builder picks a generic library otherwise.
 - Never invent a scope the user did not ask for. One request, one instruction.
 
-Bias toward "build". A person talking to a software factory wants to see something appear.`
+Prefer "research" over "ask" when the missing information is something you could look up rather than something only the person knows. Do not ask someone to name their competitors — go and find them.
+
+One hard rule: if the request compares itself to anything that already exists — "better than what is out there", "like X but", "beat the competition", "what everyone else charges" — the action is "research". Not "ask". You cannot beat a field you have not looked at, and the person cannot describe it for you.
+
+Otherwise bias toward "build". A person talking to a software factory wants to see something appear.`
 
 const REQUEST_TIMEOUT_MS = 30_000
 /** How much prior conversation Roisin is given for context. */
 const HISTORY_WINDOW = 12
 
+export type RoisinAction = 'build' | 'research' | 'ask' | 'chat'
+
 export type RoisinReply = {
   say: string
-  action: 'build' | 'ask' | 'chat'
+  action: RoisinAction
   builderPrompt: string | null
+  researchQuery: string | null
   mood: string
 }
 
@@ -50,7 +58,15 @@ const FALLBACK: RoisinReply = {
   say: "I did not quite catch that. Could you say it again?",
   action: 'chat',
   builderPrompt: null,
+  researchQuery: null,
   mood: 'confused',
+}
+
+const ACTIONS = new Set<RoisinAction>(['build', 'research', 'ask', 'chat'])
+
+/** Trims a string field, treating whitespace-only values as absent. */
+function text(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null
 }
 
 function coerceReply(raw: string): RoisinReply {
@@ -65,21 +81,25 @@ function coerceReply(raw: string): RoisinReply {
 
   try {
     const parsed = JSON.parse(unfenced.slice(start, end + 1)) as Partial<RoisinReply>
-    const action =
-      parsed.action === 'build' || parsed.action === 'ask' ? parsed.action : 'chat'
-    // An empty or whitespace-only prompt is not a build instruction; it would
-    // award build XP and celebrate for nothing.
-    const trimmedPrompt =
-      action === 'build' && typeof parsed.builderPrompt === 'string'
-        ? parsed.builderPrompt.trim()
-        : ''
-    const builderPrompt = trimmedPrompt || null
+    const claimed = ACTIONS.has(parsed.action as RoisinAction)
+      ? (parsed.action as RoisinAction)
+      : 'chat'
+
+    // An action is only real if it carries what it needs to act on. A "build"
+    // with no prompt would award build XP and celebrate for nothing, and a
+    // "research" with no query would send an empty search to Bright Data.
+    const builderPrompt = claimed === 'build' ? text(parsed.builderPrompt) : null
+    const researchQuery = claimed === 'research' ? text(parsed.researchQuery) : null
+
+    let action: RoisinAction = claimed
+    if (claimed === 'build' && !builderPrompt) action = 'chat'
+    if (claimed === 'research' && !researchQuery) action = 'chat'
 
     return {
-      say: typeof parsed.say === 'string' && parsed.say.trim() ? parsed.say.trim() : FALLBACK.say,
-      // A "build" with no prompt is not a build.
-      action: builderPrompt ? 'build' : action === 'build' ? 'chat' : action,
+      say: text(parsed.say) ?? FALLBACK.say,
+      action,
       builderPrompt,
+      researchQuery,
       mood: typeof parsed.mood === 'string' ? parsed.mood : 'idle',
     }
   } catch {
@@ -87,17 +107,16 @@ function coerceReply(raw: string): RoisinReply {
   }
 }
 
+type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
+
 /**
- * Asks Roisin's model what to do with a spoken request.
+ * Calls the model gateway and returns the raw completion text.
  *
  * Throws when the gateway is unreachable or misconfigured; the caller decides
  * how to surface that, because a silent fallback would look like Roisin
  * ignoring the user.
  */
-export async function composeReply(
-  transcript: string,
-  history: Message[],
-): Promise<RoisinReply> {
+async function callModel(messages: ChatMessage[]): Promise<string> {
   const apiKey = llmApiKey()
 
   if (!apiKey) {
@@ -120,14 +139,7 @@ export async function composeReply(
         model: llmModel(),
         temperature: 0.6,
         response_format: { type: 'json_object' },
-        messages: [
-          { role: 'system', content: SYSTEM_PROMPT },
-          ...history.slice(-HISTORY_WINDOW).map((message) => ({
-            role: message.role === 'assistant' ? 'assistant' : 'user',
-            content: message.content,
-          })),
-          { role: 'user', content: transcript },
-        ],
+        messages,
       }),
     })
 
@@ -139,19 +151,69 @@ export async function composeReply(
 
     const payload = (await response.json()) as {
       choices?: { message?: { content?: string } }[]
-      usage?: { prompt_tokens?: number; completion_tokens?: number }
     }
 
     const content = payload.choices?.[0]?.message?.content
 
-    if (!content) {
-      throw new Error('Model gateway returned no content.')
-    }
+    if (!content) throw new Error('Model gateway returned no content.')
 
-    return coerceReply(content)
+    return content
   } finally {
     clearTimeout(timeout)
   }
 }
 
-export { SYSTEM_PROMPT, coerceReply }
+function historyMessages(history: Message[]): ChatMessage[] {
+  return history.slice(-HISTORY_WINDOW).map((message) => ({
+    role: message.role === 'assistant' ? ('assistant' as const) : ('user' as const),
+    content: message.content,
+  }))
+}
+
+/** Asks Roisin's model what to do with a spoken request. */
+export async function composeReply(
+  transcript: string,
+  history: Message[],
+): Promise<RoisinReply> {
+  const content = await callModel([
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...historyMessages(history),
+    { role: 'user', content: transcript },
+  ])
+
+  return coerceReply(content)
+}
+
+/**
+ * Turns web findings into a build instruction.
+ *
+ * Run after Roisin asks for research. Grounding the second pass in real search
+ * results is the whole point: without it she would describe a competitor set
+ * from memory, and the builder would build against something that may not
+ * exist.
+ */
+export async function composeFromResearch(
+  transcript: string,
+  findings: string,
+  history: Message[],
+): Promise<RoisinReply> {
+  const content = await callModel([
+    { role: 'system', content: SYSTEM_PROMPT },
+    ...historyMessages(history),
+    { role: 'user', content: transcript },
+    {
+      role: 'user',
+      content: `${findings}
+
+That is real search data, gathered just now.
+
+Use it to write the build instruction. Ground concrete choices — features, competitors, pricing, integrations — in what the results actually show, and do not invent details they do not support. Say one short spoken sentence about what you found; keep URLs out of "say".
+
+Reply with action "build" and a builderPrompt. Only choose "ask" if the results genuinely left one blocking question unanswered.`,
+    },
+  ])
+
+  return coerceReply(content)
+}
+
+export { SYSTEM_PROMPT, coerceReply, callModel }

@@ -17,6 +17,7 @@ describe('coerceReply', () => {
       say: 'Building that now.',
       action: 'build',
       builderPrompt: 'Build a todo app with Supabase auth.',
+      researchQuery: null,
       mood: 'happy',
     })
   })
@@ -78,5 +79,58 @@ describe('coerceReply', () => {
 
     expect(reply.say.length).toBeGreaterThan(0)
     expect(reply.action).toBe('chat')
+  })
+})
+
+describe('coerceReply — research', () => {
+  test('accepts a research action with a query', () => {
+    const reply = coerceReply(
+      JSON.stringify({
+        say: 'Let me look that up.',
+        action: 'research',
+        builderPrompt: null,
+        researchQuery: 'gym workout tracker competitors',
+        mood: 'thinking',
+      }),
+    )
+
+    expect(reply.action).toBe('research')
+    expect(reply.researchQuery).toBe('gym workout tracker competitors')
+  })
+
+  // A research action with no query would send an empty search to Bright Data
+  // and bill a request for nothing.
+  test('demotes research that carries no query', () => {
+    const reply = coerceReply(
+      JSON.stringify({ say: 'Looking…', action: 'research', researchQuery: null, mood: 'thinking' }),
+    )
+
+    expect(reply.action).toBe('chat')
+    expect(reply.researchQuery).toBeNull()
+  })
+
+  test('demotes research whose query is only whitespace', () => {
+    const reply = coerceReply(
+      JSON.stringify({ say: 'Looking…', action: 'research', researchQuery: '  ', mood: 'thinking' }),
+    )
+
+    expect(reply.action).toBe('chat')
+  })
+
+  // A query only means something on a research action; carrying it elsewhere
+  // would let a stale value trigger a search on a later turn.
+  test('drops a query from a non-research action', () => {
+    const reply = coerceReply(
+      JSON.stringify({
+        say: 'Building it.',
+        action: 'build',
+        builderPrompt: 'Build a tracker.',
+        researchQuery: 'leftover query',
+        mood: 'happy',
+      }),
+    )
+
+    expect(reply.action).toBe('build')
+    expect(reply.researchQuery).toBeNull()
   })
 })

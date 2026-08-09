@@ -25,6 +25,7 @@ export const MessageKindSchema = z.enum([
   'text',
   'transcript',
   'builder_prompt',
+  'research',
   'tool_result',
   'error',
 ])

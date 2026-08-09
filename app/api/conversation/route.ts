@@ -11,7 +11,13 @@ import {
   getCurrentPet,
   getPetInformation,
 } from '@/server/PetService'
-import { composeReply } from '@/server/roisin'
+import {
+  formatResearch,
+  isResearchConfigured,
+  research,
+  type ResearchResult,
+} from '@/server/brightdata'
+import { composeFromResearch, composeReply } from '@/server/roisin'
 import { PetMoodSchema, type NewMessage } from '@/server/types'
 
 /**
@@ -85,10 +91,56 @@ export async function POST(request: Request) {
     )
   }
 
+  // When Roisin asks for facts, go and get them, then let her write the build
+  // instruction against real results rather than from memory.
+  let sources: ResearchResult[] = []
+
+  if (reply.action === 'research' && reply.researchQuery) {
+    if (!isResearchConfigured()) {
+      // Falling through silently would look like she ignored the request.
+      reply = {
+        ...reply,
+        action: 'chat',
+        say: 'I cannot look things up right now — research is not configured on this server.',
+        mood: 'confused',
+      }
+    } else {
+      try {
+        const findings = await research(reply.researchQuery)
+        sources = findings.results
+
+        const grounded = await composeFromResearch(
+          parsed.data.text,
+          formatResearch(findings),
+          history,
+        )
+
+        // Keep the query on the reply so it can be persisted and shown.
+        reply = { ...grounded, researchQuery: reply.researchQuery }
+      } catch (error) {
+        console.error('[CONVERSATION-ROUTE] research', error)
+        reply = {
+          ...reply,
+          action: 'chat',
+          say: 'I could not reach the web just now. Tell me what you know and I will work from that.',
+          mood: 'confused',
+        }
+      }
+    }
+  }
+
   const toWrite: NewMessage[] = [
     { role: 'user', kind: 'transcript', content: parsed.data.text },
     { role: 'assistant', kind: 'text', content: reply.say },
   ]
+
+  if (sources.length > 0) {
+    toWrite.push({
+      role: 'assistant',
+      kind: 'research',
+      content: formatResearch({ query: reply.researchQuery ?? '', results: sources }),
+    })
+  }
 
   if (reply.builderPrompt) {
     toWrite.push({
@@ -137,6 +189,7 @@ export async function POST(request: Request) {
       action: reply.action,
       builderPrompt: reply.builderPrompt,
       buildId,
+      sources,
       mood: mood.success ? mood.data : 'idle',
       pet: { id: pet.id, name: pet.name, xp, level, awardedXp },
     },
