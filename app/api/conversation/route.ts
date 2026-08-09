@@ -132,7 +132,15 @@ export async function POST(request: Request) {
 
   const toWrite: NewMessage[] = [
     { role: 'user', kind: 'transcript', content: parsed.data.text },
-    { role: 'assistant', kind: 'text', content: reply.say },
+    {
+      role: 'assistant',
+      kind: 'text',
+      content: reply.say,
+      // Recorded per message so usage can be reported from what actually
+      // happened rather than estimated after the fact.
+      input_tokens: reply.usage?.inputTokens,
+      output_tokens: reply.usage?.outputTokens,
+    },
   ]
 
   if (sources.length > 0) {

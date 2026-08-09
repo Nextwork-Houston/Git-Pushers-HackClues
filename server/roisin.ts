@@ -44,6 +44,8 @@ const REQUEST_TIMEOUT_MS = 30_000
 /** How much prior conversation Roisin is given for context. */
 const HISTORY_WINDOW = 12
 
+export type ModelUsage = { inputTokens: number; outputTokens: number }
+
 export type RoisinAction = 'build' | 'research' | 'ask' | 'chat'
 
 export type RoisinReply = {
@@ -52,6 +54,8 @@ export type RoisinReply = {
   builderPrompt: string | null
   researchQuery: string | null
   mood: string
+  /** What the exchange cost, so usage can be reported rather than estimated. */
+  usage?: ModelUsage
 }
 
 const FALLBACK: RoisinReply = {
@@ -116,7 +120,7 @@ type ChatMessage = { role: 'system' | 'user' | 'assistant'; content: string }
  * how to surface that, because a silent fallback would look like Roisin
  * ignoring the user.
  */
-async function callModel(messages: ChatMessage[]): Promise<string> {
+async function callModel(messages: ChatMessage[]): Promise<{ content: string; usage: ModelUsage }> {
   const apiKey = llmApiKey()
 
   if (!apiKey) {
@@ -151,13 +155,20 @@ async function callModel(messages: ChatMessage[]): Promise<string> {
 
     const payload = (await response.json()) as {
       choices?: { message?: { content?: string } }[]
+      usage?: { prompt_tokens?: number; completion_tokens?: number }
     }
 
     const content = payload.choices?.[0]?.message?.content
 
     if (!content) throw new Error('Model gateway returned no content.')
 
-    return content
+    return {
+      content,
+      usage: {
+        inputTokens: payload.usage?.prompt_tokens ?? 0,
+        outputTokens: payload.usage?.completion_tokens ?? 0,
+      },
+    }
   } finally {
     clearTimeout(timeout)
   }
@@ -175,13 +186,13 @@ export async function composeReply(
   transcript: string,
   history: Message[],
 ): Promise<RoisinReply> {
-  const content = await callModel([
+  const { content, usage } = await callModel([
     { role: 'system', content: SYSTEM_PROMPT },
     ...historyMessages(history),
     { role: 'user', content: transcript },
   ])
 
-  return coerceReply(content)
+  return { ...coerceReply(content), usage }
 }
 
 /**
@@ -197,7 +208,7 @@ export async function composeFromResearch(
   findings: string,
   history: Message[],
 ): Promise<RoisinReply> {
-  const content = await callModel([
+  const { content, usage } = await callModel([
     { role: 'system', content: SYSTEM_PROMPT },
     ...historyMessages(history),
     { role: 'user', content: transcript },
@@ -220,7 +231,7 @@ Reply with action "build" and a builderPrompt. Only choose "ask" if the results 
     },
   ])
 
-  return coerceReply(content)
+  return { ...coerceReply(content), usage }
 }
 
 export { SYSTEM_PROMPT, coerceReply, callModel }
