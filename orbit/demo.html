@@ -674,6 +674,10 @@
         orbit.stopWaiting({ state: null });
         orbit.playAction('tantrum', { duration: 1400 });
         orbit.addMessage(error.message, 'assistant');
+      } finally {
+        // Must release on every path, including the early return above.
+        // Without this she answers once and is deaf forever after.
+        pending = false;
       }
     }
 
