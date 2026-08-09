@@ -28,7 +28,17 @@ const CredentialsSchema = z.object({
 
 export type AuthResult = { error: string } | undefined
 
-const USERNAME_EMAIL_DOMAIN = 'orbit.local'
+/**
+ * Sign-in is by username, but Supabase authenticates by email, so each
+ * username is mapped to a synthetic address.
+ *
+ * The domain has to be one Supabase's validator accepts — `.local` and other
+ * reserved suffixes are rejected outright with `email_address_invalid`, which
+ * makes every sign-up fail. Nothing is ever delivered here, so the project has
+ * `mailer_autoconfirm` enabled; without it Supabase withholds the session
+ * pending a confirmation link that no one can receive.
+ */
+const USERNAME_EMAIL_DOMAIN = 'orbit.app'
 
 function emailForUsername(username: string) {
   return `${username}@${USERNAME_EMAIL_DOMAIN}`
