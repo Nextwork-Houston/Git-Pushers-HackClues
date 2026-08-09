@@ -38,7 +38,11 @@ Do not use Ponytail for simple explanations, general programming concepts, or ta
 Always analyze the output from Ponytail before responding.`
 
 const modelURL = "https://api.aimlapi.com/v1";
-const MODEL_KEY = process.env.MLAI_API_KEY!
+
+const MODEL_KEY = process.env.MLAI_API_KEY;
+if (!MODEL_KEY) {
+    throw new Error("Missing MLAI_API_KEY in environment variables.");
+}
 
 const aiModel = new OpenAI({
     baseURL: modelURL,
