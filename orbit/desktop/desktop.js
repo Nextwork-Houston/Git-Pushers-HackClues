@@ -430,6 +430,8 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
     voice = new window.OrbitVoice({
       enabled: config.voiceReplies !== false,
       skin: orbit.skin,
+      // Tunable in desktop-config.json without rebuilding the app.
+      rate: config.voiceRate,
       // Synthesis runs through the main process, which holds the session.
       fetchAudio: async (text, voiceId) => {
         const outcome = await window.orbitDesktop.tts(text, voiceId);

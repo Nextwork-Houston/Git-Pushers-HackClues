@@ -54,6 +54,28 @@
   const DEFAULT_SKIN = 'pink'
   const STORAGE_KEY = 'orbit-voice'
 
+  /**
+   * Playback speed for synthesised replies.
+   *
+   * Speechmatics TTS takes no speed or pitch parameter, so this is applied to
+   * the audio instead. Rate and pitch move together — the recording is played
+   * faster, which lifts it — which is the brighter, quicker read we want. A
+   * separate pitch control would need real pitch shifting, and would sound
+   * worse for the little it would add.
+   *
+   * 1.12 is about two semitones up. Past ~1.25 it starts to sound comical.
+   */
+  const DEFAULT_RATE = 1.12
+  const MIN_RATE = 0.75
+  const MAX_RATE = 1.6
+
+  /** Keeps the rate inside what still sounds like a person. */
+  function clampRate(value) {
+    const rate = Number(value);
+    if (!Number.isFinite(rate)) return DEFAULT_RATE;
+    return Math.min(MAX_RATE, Math.max(MIN_RATE, rate));
+  }
+
   function voiceForSkin(skin) {
     return VOICES[skin] || VOICES[DEFAULT_SKIN]
   }
@@ -81,6 +103,7 @@
       this.fetchAudio = settings.fetchAudio || null
       this.enabled = settings.enabled !== false
       this.skin = settings.skin || this._restoreSkin() || DEFAULT_SKIN
+      this.rate = clampRate(settings.rate)
 
       this.context = null
       this.current = null
@@ -114,6 +137,12 @@
       } catch {
         /* private browsing */
       }
+    }
+
+    /** Adjusts delivery speed, and with it the pitch. */
+    setRate(value) {
+      this.rate = clampRate(value);
+      return this.rate;
     }
 
     setEnabled(enabled) {
@@ -184,6 +213,8 @@
 
       const source = this.context.createBufferSource()
       source.buffer = decoded
+      // Speeds the delivery and lifts the pitch together.
+      source.playbackRate.value = this.rate
       source.connect(this.context.destination)
 
       this.current = source
@@ -205,8 +236,10 @@
 
       if (preferred) utterance.voice = preferred
 
-      utterance.rate = 1.02
-      utterance.pitch = this.voice.gender === 'female' ? 1.1 : 0.95
+      // The browser engine exposes both, so the same brightness is set
+      // explicitly rather than inferred from playback speed.
+      utterance.rate = this.rate
+      utterance.pitch = (this.voice.gender === 'female' ? 1.1 : 0.95) + (this.rate - 1) * 0.5
 
       window.speechSynthesis.speak(utterance)
       return true

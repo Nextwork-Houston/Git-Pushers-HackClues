@@ -21,5 +21,6 @@
     }
   ],
   "ttsUrl": "https://git-pushers-hackclues-orbit.vercel.app/api/speech/tts",
-  "voiceReplies": true
+  "voiceReplies": true,
+  "voiceRate": 1.12
 }
