@@ -704,7 +704,17 @@
       orbit.setState('listening');
       // A guest account is created before the first token request, so
       // Speechmatics is available rather than falling back to the browser.
-      await ensureSession();
+      const sessionOk = await ensureSession();
+      if (!sessionOk) {
+        orbit.setListening(false);
+        orbit.setState('idle');
+        orbit.addMessage(
+          'I need guest access or sign-in before I can listen. Open Sign in and try again.',
+          'assistant'
+        );
+        return;
+      }
+
       showcaseBridge = new window.OrbitSpeechBridge({ tokenUrl: '/api/speech/token' });
 
       try {
