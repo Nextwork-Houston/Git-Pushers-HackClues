@@ -556,6 +556,49 @@
       return sessionReady;
     }
 
+    /**
+     * Walks the user through connecting something, then resumes the task.
+     *
+     * A companion that says "I cannot do that" and stops is a dead end. She
+     * opens the page, waits for the connection to appear, and picks up exactly
+     * what was asked before — so connecting feels like part of the request
+     * rather than an interruption to it.
+     */
+    async function connectThenResume(connector) {
+      orbit.addMessage(connector.prompt || ('I need ' + connector.name + ' connected first.'), 'assistant');
+      if (showcaseVoice) showcaseVoice.speak(connector.prompt || '');
+
+      if (!connector.actionUrl) return;
+
+      window.open(connector.actionUrl, '_blank', 'noopener');
+      orbit.setState('thinking');
+
+      // Poll rather than assume: the user may take a minute, or give up.
+      const deadline = Date.now() + 180000;
+
+      while (Date.now() < deadline) {
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+
+        try {
+          const response = await fetch('/api/connectors');
+          if (!response.ok) continue;
+          const status = await response.json();
+          const still = status.connectors.find((entry) => entry.id === connector.id);
+          if (still && still.state === 'connected') {
+            orbit.addMessage(connector.name + ' is connected. Picking up where we left off.', 'assistant');
+            orbit.playAction('laugh', { duration: 1400 });
+            if (connector.resume) await askRoisin(connector.resume);
+            return;
+          }
+        } catch {
+          /* keep waiting */
+        }
+      }
+
+      orbit.setState('idle');
+      orbit.addMessage('Still not connected — say it again once you are done and I will carry on.', 'assistant');
+    }
+
     /** Sends a finished transcript to Roisin and plays back what she decides. */
     async function askRoisin(text) {
       orbit.startWaiting({ openChat: true });
@@ -589,6 +632,13 @@
             'Copied. Paste it into native.builder, or install the desktop app and I will type it in for you.',
             'assistant'
           );
+
+          // Something the build needs was never connected — take them there
+          // and resume, rather than failing quietly further down.
+          if (payload.connect) {
+            connectThenResume(payload.connect);
+            return;
+          }
 
           // The spec is committed so the build outlives the voice session.
           if (payload.buildId) {

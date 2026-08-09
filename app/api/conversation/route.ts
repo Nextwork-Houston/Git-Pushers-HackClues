@@ -18,6 +18,7 @@ import {
   type ResearchResult,
 } from '@/server/brightdata'
 import { composeFromResearch, composeReply } from '@/server/roisin'
+import { blockingConnector, listConnectors, type Connector } from '@/server/connectors'
 import { PetMoodSchema, type NewMessage } from '@/server/types'
 
 /**
@@ -170,6 +171,22 @@ export async function POST(request: Request) {
     console.error('[CONVERSATION-ROUTE] persist', error)
   }
 
+  // If a build was produced but somewhere to save it was never connected,
+  // say so with a way to fix it rather than letting the save fail silently
+  // after the conversation has moved on.
+  let connect: Connector | null = null
+
+  if (reply.builderPrompt) {
+    try {
+      const connectors = await listConnectors(
+        process.env.NEXT_PUBLIC_NATIVE_BUILDER_URL || 'https://builder.nativelyai.com',
+      )
+      connect = blockingConnector(connectors, 'scaffold')
+    } catch (error) {
+      console.error('[CONVERSATION-ROUTE] connectors', error)
+    }
+  }
+
   const mood = PetMoodSchema.safeParse(reply.mood)
   let xp = pet.xp
   let level = pet.level
@@ -194,6 +211,7 @@ export async function POST(request: Request) {
       builderPrompt: reply.builderPrompt,
       buildId,
       sources,
+      connect: connect ? { ...connect, resume: parsed.data.text } : null,
       mood: mood.success ? mood.data : 'idle',
       pet: { id: pet.id, name: pet.name, xp, level, awardedXp },
     },
