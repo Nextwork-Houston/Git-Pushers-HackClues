@@ -1,5 +1,6 @@
 import type OpenAI from "openai";
-import { BaseMessage, AIMessage, HumanMessage, SystemMessage } from "@langchain/core/messages";
+import type { BaseMessage } from "@langchain/core/messages";
+import type { ToolMessage } from "@langchain/core/messages/tool";
 import type { StructuredToolInterface } from "@langchain/core/tools";
 
 export function toOpenAIMessages(messages: BaseMessage[]): OpenAI.ChatCompletionMessageParam[] {
@@ -13,6 +14,8 @@ export function toOpenAIMessages(messages: BaseMessage[]): OpenAI.ChatCompletion
         return { role: "assistant", content } as OpenAI.ChatCompletionAssistantMessageParam;
       case "system":
         return { role: "system", content } as OpenAI.ChatCompletionSystemMessageParam;
+      case "tool":
+        return { role: "tool", tool_call_id: (m as ToolMessage).tool_call_id, content } as OpenAI.ChatCompletionToolMessageParam;
       default:
         // tool messages, function messages, etc. — handle explicitly if you use them
         return { role: "user", content } as OpenAI.ChatCompletionUserMessageParam;
