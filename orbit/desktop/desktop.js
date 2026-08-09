@@ -84,7 +84,10 @@ async function sendConversation(text) {
       const delivered = await deliverToBuilder(result.builderPrompt);
       // Only the shell knows whether native.builder accepted it, so it is the
       // only place that can resolve the build from "pending".
-      if (result.buildId) reportBuildStatus(result.buildId, delivered);
+      if (result.buildId) {
+        reportBuildStatus(result.buildId, delivered);
+        scaffoldSpec(result.buildId);
+      }
     }
 
     setTimeout(() => {
@@ -97,6 +100,19 @@ async function sendConversation(text) {
     orbit.addMessage(error.message, "assistant");
     scheduleAliveMode(1800);
   }
+}
+
+/** Commits the build as a spec, so it outlives the voice session. */
+function scaffoldSpec(buildId) {
+  if (!config.conversationUrl) return;
+  const base = config.conversationUrl.replace(/\/api\/conversation\/?$/, "");
+  window.orbitDesktop
+    .scaffold(base + "/api/github/scaffold", buildId)
+    .then((outcome) => {
+      const url = outcome && outcome.data && outcome.data.commit && outcome.data.commit.url;
+      if (url) orbit.addMessage("I wrote the spec to GitHub: " + url, "assistant");
+    })
+    .catch(() => {});
 }
 
 function reportBuildStatus(buildId, delivered, reason) {

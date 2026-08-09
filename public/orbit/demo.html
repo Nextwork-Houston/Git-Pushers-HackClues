@@ -589,6 +589,22 @@
             'Copied. Paste it into native.builder, or install the desktop app and I will type it in for you.',
             'assistant'
           );
+
+          // The spec is committed so the build outlives the voice session.
+          if (payload.buildId) {
+            fetch('/api/github/scaffold', {
+              method: 'POST',
+              headers: { 'Content-Type': 'application/json' },
+              body: JSON.stringify({ buildId: payload.buildId })
+            })
+              .then((response) => (response.ok ? response.json() : null))
+              .then((result) => {
+                if (result?.commit?.url) {
+                  orbit.addMessage('I wrote the spec to GitHub: ' + result.commit.url, 'assistant');
+                }
+              })
+              .catch(() => {});
+          }
         }
 
         setTimeout(() => orbit.setState('idle'), 1400);

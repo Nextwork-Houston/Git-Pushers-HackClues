@@ -305,6 +305,8 @@ if (!hasSingleInstanceLock) {
     return base ? apiSession.apiFetch(base + "/api/system/health") : { ok: false, status: 0 };
   });
   ipcMain.handle("orbit:guest", () => apiSession.ensureGuest(getConfig()));
+  ipcMain.handle("orbit:scaffold", (_event, url, buildId) =>
+    apiSession.apiFetch(url, { method: "POST", body: { buildId } }));
   ipcMain.handle("orbit:sign-in", () => apiSession.openSignIn(getConfig()));
   ipcMain.handle("orbit:open-builder", () => {
     builder.openBuilderWindow(getConfig());

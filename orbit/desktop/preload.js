@@ -19,6 +19,7 @@ contextBridge.exposeInMainWorld("orbitDesktop", {
   patchBuild: (url, status, error) => ipcRenderer.invoke("orbit:patch-build", String(url), String(status), error ? String(error) : undefined),
   health: () => ipcRenderer.invoke("orbit:health"),
   guest: () => ipcRenderer.invoke("orbit:guest"),
+  scaffold: (url, buildId) => ipcRenderer.invoke("orbit:scaffold", String(url), String(buildId)),
   signIn: () => ipcRenderer.invoke("orbit:sign-in"),
   openBuilder: () => ipcRenderer.invoke("orbit:open-builder"),
   sendToBuilder: (prompt) => ipcRenderer.invoke("orbit:send-to-builder", String(prompt ?? "")),
