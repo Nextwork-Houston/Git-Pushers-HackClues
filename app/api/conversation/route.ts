@@ -65,7 +65,7 @@ export async function POST(request: Request) {
       : await getCurrentPet()
   } catch (error) {
     console.error('[CONVERSATION-ROUTE] pet lookup', error)
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized Pet Lookup' }, { status: 401 })
   }
 
   let history

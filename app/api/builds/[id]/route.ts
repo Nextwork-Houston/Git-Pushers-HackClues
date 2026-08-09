@@ -27,7 +27,7 @@ export async function PATCH(
   try {
     await getUser()
   } catch {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized Build Access' }, { status: 401 })
   }
 
   const { id } = await params

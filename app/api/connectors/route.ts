@@ -14,7 +14,7 @@ export async function GET(request: Request) {
   try {
     await getUser()
   } catch {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized User Request 2' }, { status: 401 })
   }
 
   const builderUrl =

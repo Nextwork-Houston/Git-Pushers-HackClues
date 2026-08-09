@@ -27,7 +27,7 @@ export async function POST(request: Request) {
   try {
     await getUser()
   } catch {
-    return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    return NextResponse.json({ error: 'Unauthorized Voice Request 1' }, { status: 401 })
   }
 
   const apiKey = speechmaticsApiKey()
