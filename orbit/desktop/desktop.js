@@ -57,11 +57,18 @@ async function sendConversation(text) {
 
   try {
     // The main process holds the session; the renderer has no cookie jar.
-    const outcome = await window.orbitDesktop.conversation(text);
+    let outcome = await window.orbitDesktop.conversation(text);
+
+    // A guest account rather than a sign-in wall, matching the web surface.
+    // Only if claiming one also fails is a real sign-in worth asking for.
+    if (outcome.status === 401) {
+      await window.orbitDesktop.guest().catch(() => {});
+      outcome = await window.orbitDesktop.conversation(text);
+    }
 
     if (outcome.status === 401) {
       orbit.stopWaiting({ state: null });
-      orbit.addMessage("Sign in and I can start building for you.", "assistant");
+      orbit.addMessage("I need you signed in before I can help. Opening that now.", "assistant");
       await window.orbitDesktop.signIn();
       return;
     }
@@ -78,6 +85,21 @@ async function sendConversation(text) {
     if (reply) {
       orbit.addMessage(reply, "assistant");
       if (voice) voice.speak(reply);
+    }
+
+    // Say what was actually read, so grounded answers are visibly grounded.
+    if (result.sources && result.sources.length) {
+      orbit.addMessage(
+        "I looked that up: " + result.sources.slice(0, 3).map((source) => source.title).join(", "),
+        "assistant",
+      );
+    }
+
+    // Something the build depends on was never connected. Open it, wait, and
+    // pick the request back up rather than failing quietly further down.
+    if (result.connect) {
+      await connectThenResume(result.connect, text);
+      return;
     }
 
     if (result.builderPrompt) {
@@ -100,6 +122,42 @@ async function sendConversation(text) {
     orbit.addMessage(error.message, "assistant");
     scheduleAliveMode(1800);
   }
+}
+
+/**
+ * Walks the user through connecting something, then retries what they asked.
+ *
+ * Matches the web surface: connecting should feel like part of the request
+ * rather than an interruption that loses it.
+ */
+async function connectThenResume(connector, originalText) {
+  orbit.openChat();
+  orbit.addMessage(connector.prompt || `I need ${connector.name} connected first.`, "assistant");
+  if (voice) voice.speak(connector.prompt || "");
+
+  if (connector.id === "native_builder") {
+    window.orbitDesktop.openBuilder();
+  } else if (connector.actionUrl) {
+    window.orbitDesktop.openExternal(connector.actionUrl);
+  }
+
+  const deadline = Date.now() + 180000;
+
+  while (Date.now() < deadline) {
+    await new Promise((resolve) => setTimeout(resolve, 4000));
+
+    const outcome = await window.orbitDesktop.health().catch(() => null);
+    const missing = outcome && outcome.data && outcome.data.missing;
+
+    if (missing && !missing.includes(connector.id)) {
+      orbit.addMessage(`${connector.name} is connected. Picking up where we left off.`, "assistant");
+      refreshConnection();
+      if (originalText) await sendConversation(originalText);
+      return;
+    }
+  }
+
+  orbit.addMessage("Still not connected — say it again once you are done.", "assistant");
 }
 
 /** Commits the build as a spec, so it outlives the voice session. */

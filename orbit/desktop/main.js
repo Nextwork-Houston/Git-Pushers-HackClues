@@ -1,6 +1,6 @@
 "use strict";
 
-const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } = require("electron");
+const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, shell, Tray } = require("electron");
 const fs = require("node:fs");
 const path = require("node:path");
 
@@ -308,6 +308,7 @@ if (!hasSingleInstanceLock) {
     const base = String(config.conversationUrl || "").replace(/\/api\/conversation\/?$/, "");
     return base ? apiSession.apiFetch(base + "/api/system/health") : { ok: false, status: 0 };
   });
+  ipcMain.handle("orbit:open-external", (_event, url) => shell.openExternal(String(url || "")));
   ipcMain.handle("orbit:guest", () => apiSession.ensureGuest(getConfig()));
   ipcMain.handle("orbit:scaffold", (_event, url, buildId) =>
     apiSession.apiFetch(url, { method: "POST", body: { buildId } }));
