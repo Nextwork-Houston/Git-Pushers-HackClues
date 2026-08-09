@@ -111,11 +111,16 @@ function reportBuildStatus(buildId, delivered, reason) {
 async function deliverToBuilder(prompt) {
   if (!window.orbitDesktop.sendToBuilder) return false;
 
-  orbit.playAction("celebrate", { duration: 1800 });
+  // "dance", not "celebrate" — celebrate is a mood the model returns, not an
+  // animation the sprite sheets have. An unknown name silently falls back to
+  // idle, so she would have stood still at the best moment in the demo.
+  orbit.playAction("dance", { duration: 1800 });
   const outcome = await window.orbitDesktop.sendToBuilder(prompt);
 
   if (outcome && outcome.ok) {
     orbit.addMessage("Sent it to native.builder. Watch it work.", "assistant");
+    orbit.playAction("laugh", { duration: 1600 });
+    refreshConnection();
     return true;
   }
 
@@ -239,6 +244,54 @@ orbit.addEventListener("avatar-action", (event) => {
 
 orbit.addEventListener("avatar-size-request", (event) => updateScale(orbitScale + event.detail.step * 0.1));
 orbit.addEventListener("avatar-desktop-menu-request", () => window.orbitDesktop.showMenu());
+
+// Right-click anywhere on her opens the desktop menu, which is where Quit
+// lives. The window is frameless, so without this there is no visible way to
+// close her.
+document.addEventListener("contextmenu", (event) => {
+  event.preventDefault();
+  window.orbitDesktop.showMenu();
+});
+
+/**
+ * Reflects whether the whole stack is actually reachable.
+ *
+ * Green only when signed in and every service reported configured. Anything
+ * less is amber or red, because a light that is always green is not an
+ * indicator, it is decoration.
+ */
+async function refreshConnection() {
+  if (!config.conversationUrl) {
+    orbit.setConnection("offline", { detail: "No backend configured." });
+    return;
+  }
+
+  orbit.setConnection("checking");
+
+  try {
+    const outcome = await window.orbitDesktop.health();
+
+    if (outcome.status === 401) {
+      orbit.setConnection("degraded", { detail: "Signed out." });
+      return;
+    }
+
+    if (!outcome.ok || !outcome.data) {
+      orbit.setConnection("offline", { detail: "Backend unreachable." });
+      return;
+    }
+
+    const missing = outcome.data.missing || [];
+    orbit.setConnection(missing.length === 0 ? "online" : "degraded", {
+      detail: missing.length ? `Not configured: ${missing.join(", ")}` : "All services online.",
+    });
+  } catch {
+    orbit.setConnection("offline", { detail: "Backend unreachable." });
+  }
+}
+
+/** Re-checked periodically so a service dropping out is visible. */
+const CONNECTION_POLL_MS = 60000;
 orbit.addEventListener("avatar-waiting-stop", () => scheduleAliveMode());
 
 function updateScale(nextScale) {
@@ -351,4 +404,7 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   enableDirectDragging();
   enableTransparentClickThrough();
   startAliveMode();
+
+  refreshConnection();
+  setInterval(refreshConnection, CONNECTION_POLL_MS);
 });

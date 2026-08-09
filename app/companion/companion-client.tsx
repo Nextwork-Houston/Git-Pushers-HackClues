@@ -111,7 +111,7 @@ export function CompanionClient({
         if (typeof payload.pet?.xp === 'number') setXp(payload.pet.xp)
 
         if (payload.builderPrompt) {
-          avatar.playAction('celebrate', { duration: 2000 })
+          avatar.playAction('dance', { duration: 2000 })
           setStatus('Build instruction ready')
 
           const delivered = window.orbitDesktop?.sendToBuilder

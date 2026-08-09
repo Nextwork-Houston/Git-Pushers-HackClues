@@ -175,7 +175,7 @@ The microphone button emits `speech-toggle-request`. Start or stop the Speechmat
 
 ## Native Agent Builder
 
-Orbit includes an in-avatar connector for the AI Factory Native.builder Hackathon. Open the hamburger menu and expand **Connect native.builder agent** to register a deployed native.builder workflow or another public agent endpoint. The connector captures the agent name, platform, model or workflow label, endpoint, and request method, then immediately adds the agent to Orbit's action menu.
+Orbit includes an in-avatar connector for the AI Factory native.builder Hackathon. Open the hamburger menu and expand **Connect native.builder agent** to register a deployed native.builder workflow or another public agent endpoint. The connector captures the agent name, platform, model or workflow label, endpoint, and request method, then immediately adds the agent to Orbit's action menu.
 
 Add `agent-storage-key` to persist user-connected agents in local storage:
 

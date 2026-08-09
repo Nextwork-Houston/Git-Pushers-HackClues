@@ -296,6 +296,14 @@ if (!hasSingleInstanceLock) {
   });
   ipcMain.handle("orbit:patch-build", (_event, url, status, error) =>
     apiSession.apiFetch(url, { method: "PATCH", body: error ? { status, error } : { status } }));
+  // Health is read through the same session as everything else, so a green
+  // glow means "signed in and every service answered", not merely "the server
+  // is up". An indicator that lights regardless would be worse than none.
+  ipcMain.handle("orbit:health", () => {
+    const config = getConfig();
+    const base = String(config.conversationUrl || "").replace(/\/api\/conversation\/?$/, "");
+    return base ? apiSession.apiFetch(base + "/api/system/health") : { ok: false, status: 0 };
+  });
   ipcMain.handle("orbit:sign-in", () => apiSession.openSignIn(getConfig()));
   ipcMain.handle("orbit:open-builder", () => {
     builder.openBuilderWindow(getConfig());

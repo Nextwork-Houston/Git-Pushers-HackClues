@@ -175,6 +175,47 @@
       z-index: -2;
     }
 
+    /*
+      Connection glow.
+
+      A standing halo that answers "is everything actually wired up?" without
+      opening a menu. Green means every service reported healthy and the
+      builder is reachable; amber means something is missing but she still
+      works; red means she cannot reach the backend at all.
+
+      This sits under the state-driven aura, so an active expression still
+      overrides it.
+    */
+    .companion[data-connection="online"] .aura {
+      opacity: 0.5;
+      transform: scale(1);
+      background: radial-gradient(circle, rgba(52, 232, 140, 0.34), rgba(16, 160, 96, 0.1) 52%, transparent 72%);
+      animation: connectionBreathe 3.6s ease-in-out infinite;
+    }
+
+    .companion[data-connection="degraded"] .aura {
+      opacity: 0.42;
+      transform: scale(1);
+      background: radial-gradient(circle, rgba(255, 190, 70, 0.32), rgba(200, 130, 20, 0.1) 52%, transparent 72%);
+    }
+
+    .companion[data-connection="offline"] .aura {
+      opacity: 0.32;
+      transform: scale(0.97);
+      background: radial-gradient(circle, rgba(255, 92, 92, 0.28), rgba(170, 40, 40, 0.09) 52%, transparent 72%);
+    }
+
+    .companion[data-connection="checking"] .aura {
+      opacity: 0.3;
+      transform: scale(0.97);
+      animation: connectionBreathe 1.4s ease-in-out infinite;
+    }
+
+    @keyframes connectionBreathe {
+      0%, 100% { opacity: 0.34; transform: scale(0.98); }
+      50%      { opacity: 0.6;  transform: scale(1.03); }
+    }
+
     .ground {
       position: absolute;
       width: 184px;
@@ -515,6 +556,7 @@
       this._speechCleanup = null;
       this._sheets = { ...DEFAULT_SHEETS };
       this._waiting = false;
+      this._connection = "unknown";
       this._ambient = false;
       this._waitingTimer = null;
       this._waitingActions = [...DEFAULT_WAITING_ACTIONS];
@@ -602,6 +644,34 @@
       this._updateStatus();
       this._renderMessages();
     }
+
+    /**
+     * Reports whether the stack behind her is actually up.
+     *
+     * "online" is only truthful when every service the companion depends on
+     * answered — a green glow that lit up regardless would be worse than no
+     * indicator at all, because it would be trusted.
+     *
+     * @param {"unknown"|"checking"|"online"|"degraded"|"offline"} state
+     * @param {{detail?: string}} [options]
+     */
+    setConnection(state, options = {}) {
+      const allowed = ["unknown", "checking", "online", "degraded", "offline"];
+      const normalized = allowed.includes(state) ? state : "unknown";
+
+      this._connection = normalized;
+      if (this.$) this.$(".companion").dataset.connection = normalized;
+
+      this.dispatchEvent(new CustomEvent("avatar-connection-change", {
+        detail: { connection: normalized, detail: options.detail || "" },
+        bubbles: true,
+        composed: true,
+      }));
+
+      return normalized;
+    }
+
+    get connection() { return this._connection || "unknown"; }
 
     setSkin(name, options = {}) {
       const normalized = normalizeSkinName(name);
@@ -790,7 +860,7 @@
     _render() {
       this.shadowRoot.innerHTML = `
         <style>${styles}</style>
-        <section class="companion" data-state="idle">
+        <section class="companion" data-state="idle" data-connection="unknown">
           <aside class="chat" role="region" aria-label="Conversation with avatar">
             <header class="chat-header">
               <div class="identity"><span class="status-dot"></span><div><strong class="pet-name"></strong><div class="status">Ready</div></div></div>
