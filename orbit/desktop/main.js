@@ -4,6 +4,8 @@ const { app, BrowserWindow, dialog, ipcMain, Menu, nativeImage, screen, Tray } =
 const fs = require("node:fs");
 const path = require("node:path");
 
+const builder = require("./builder-window");
+
 app.setName("Orbit");
 
 const COMPACT_SIZE = { width: 320, height: 350 };
@@ -270,6 +272,15 @@ if (!hasSingleInstanceLock) {
   ipcMain.handle("orbit:get-config", () => getConfig());
   ipcMain.handle("orbit:get-app-info", () => ({ version: app.getVersion(), userDataPath: app.getPath("userData") }));
   ipcMain.handle("orbit:set-launch-at-startup", (_event, enabled) => setLaunchAtStartup(enabled));
+  ipcMain.handle("orbit:open-builder", () => {
+    builder.openBuilderWindow(getConfig());
+    return true;
+  });
+  ipcMain.handle("orbit:send-to-builder", async (_event, prompt) => {
+    const result = await builder.sendPromptToBuilder(prompt, getConfig());
+    if (!result.ok) appendLog("WARN", `Could not send the prompt to native.builder (${result.reason}).`);
+    return result;
+  });
 
   process.on("uncaughtException", (error) => appendLog("FATAL", "Uncaught main-process exception.", error));
   process.on("unhandledRejection", (error) => appendLog("ERROR", "Unhandled main-process rejection.", error));

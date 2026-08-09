@@ -1,94 +1,123 @@
 # Git Pushers HackClues
 
-HackClues is a Next.js hackathon application with an interactive AI companion experience. This branch adds **Orbit**, a reusable animated voice companion that runs in the browser and as a cross-platform desktop pet.
+**Say it. Roisin builds it.**
 
-## Live experiences
+Roisin is a voice companion who sits on your desktop and turns what you say into
+working software by driving [native.builder](https://builder.nativelyai.com).
+You describe what you want out loud; she works out what you actually meant,
+writes a precise build instruction, and puts it into native.builder for you.
 
-- Main application: `/`
-- Public Orbit showcase: `/orbit`
-- Orbit desktop downloads: `/orbit/downloads/`
+Live: **https://git-pushers-hackclues-orbit.vercel.app/orbit**
 
-## Orbit capabilities
+## How she works
 
-- 20 expressions and actions, including thinking, crying, dancing, skipping, somersaults, backflips, love actions, and waiting performances.
-- Click-to-activate chat with Speechmatics-compatible transcript events.
-- Native Agent Builder for connecting deployed native.builder workflows or custom AI agent endpoints directly inside Orbit.
-- End-to-end agent execution that forwards the latest spoken request, animates while the workflow runs, and returns the result to chat.
-- Configurable backend action menu and conversation endpoint.
-- Four selectable characters: Solis, Orbit, Nimbus, and Roisin in two-tone Rose Candy.
-- Transparent Electron desktop shell with direct dragging, persistent resizing, stable idle positioning, always-on-top behavior, and transparent click-through areas.
-- Windows, macOS, and Linux startup installers.
+1. **You talk.** Speechmatics transcribes you in real time — Flow when it is
+   available, Realtime otherwise, the browser engine as a last resort.
+2. **She thinks.** Rambling speech becomes one specific, self-contained
+   instruction, with the right partner named (Speechmatics for speech, Supabase
+   for data, Bright Data for scraping) so the builder does not reach for a
+   generic library.
+3. **She acts.** The desktop shell opens native.builder in a visible window and
+   types the instruction into its chat.
+4. **She levels up.** Every exchange earns XP; builds earn more than chat.
 
-## Technology
+native.builder has no public API, so "acting" means using its interface the way
+a person would, in your own signed-in session, in a window you can watch. See
+[the architecture notes](docs/ORBIT_ARCHITECTURE.md) for why.
 
-- Next.js 16, React 19, TypeScript, Tailwind CSS
-- Electron desktop runtime
-- Dependency-free Web Component for the avatar UI
-- Vercel static delivery for the Orbit showcase and installer downloads
+## Surfaces
 
-## Local development
+| Surface | Where | Sign-in |
+| --- | --- | --- |
+| Public showcase | `/orbit` | no |
+| Signed-in companion | `/companion` | yes |
+| Desktop companion | `/orbit/downloads/` | yes, for voice |
+
+## Running it
 
 ```bash
+npm install
+cp .env.example .env.local   # then fill it in
+npm run dev
+```
+
+- Showcase: http://localhost:3000/orbit
+- Companion: http://localhost:3000/companion (redirects to `/login` first)
+
+Desktop shell:
+
+```bash
+cd orbit
 npm install
 npm run dev
 ```
 
-Open `http://localhost:3000/orbit` for the public Orbit showcase. The existing authenticated dashboard remains available at `/`.
+From a downloaded ZIP, run `install-orbit-desktop.cmd` (Windows),
+`install-orbit-desktop.sh` (macOS and Linux). It installs Electron on first
+launch.
 
-Run a production check before opening a pull request:
+## Configuration
+
+Everything lives in `.env.local`; see [.env.example](.env.example) for the full
+list. The ones that matter:
+
+| Variable | Needed for |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL`, `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sign-in, pets, history |
+| `SPEECHMATICS_API_KEY` | real transcription |
+| `LLM_API_KEY`, `LLM_BASE_URL`, `LLM_MODEL` | Roisin's reasoning |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | committing files on your behalf |
+
+`GET /api/system/health` reports which of these are configured, without
+revealing any values.
+
+Desktop settings live in `orbit/desktop/desktop-config.json`: `conversationUrl`,
+`speechTokenUrl`, `builderUrl`, and `builderSelectors` for when native.builder's
+markup changes.
+
+## Database
+
+Apply `supabase/migrations/0001_init.sql` to your Supabase project. It creates
+`profiles`, `pets`, and `conversations`, enables row level security on all
+three, and adds a trigger that gives every new account a companion.
+
+## Verifying
 
 ```bash
-npm run build
+npm run verify   # typecheck, tests, asset sync check, production build
 ```
 
-## Desktop development
+Individually: `npm run typecheck`, `npm test`, `npm run sync:orbit:check`,
+`npm run build`.
 
-```bash
-cd orbit/desktop
-npm install
-npm start
-```
+`orbit/` is the source of truth for the avatar and speech bridge; `public/orbit/`
+is a generated copy. Edit `orbit/`, then run `npm run sync:orbit`. CI fails if
+the copy is stale.
 
-Desktop configuration lives in `orbit/desktop/desktop-config.json`. Set `conversationUrl` to a backend endpoint that accepts `{ "text": "..." }` and returns a JSON object containing `reply`, `message`, or `text`.
-
-Speechmatics integrations can dispatch browser events to the desktop renderer:
-
-```js
-window.dispatchEvent(new CustomEvent("speechmatics.partial", {
-  detail: { text: "partial transcript" }
-}));
-
-window.dispatchEvent(new CustomEvent("speechmatics.final", {
-  detail: { text: "final transcript" }
-}));
-```
-
-## Repository structure
+## Repository layout
 
 ```text
-app/                  Next.js application routes
-components/           Existing dashboard components
-orbit/                Orbit source, Electron shell, and installers
-public/orbit/         Vercel-ready showcase, sprites, and downloads
-docs/                 Architecture and deployment documentation
-vercel.json           Public route and download response configuration
+app/                    Next routes, pages, and API handlers
+server/                 Supabase clients, services, and Roisin's reasoning
+orbit/                  Avatar component, speech bridge, Electron shell
+public/orbit/           Published copy of the Orbit assets (generated)
+supabase/migrations/    Schema and row level security
+scripts/                Repository tooling
+tests/                  Unit tests
+docs/                   Architecture and deployment
 ```
-
-## Branch strategy
-
-Orbit and its Vercel configuration belong in one feature branch because they form one deployable feature. Use separate branches for unrelated work or later isolated changes, such as a Speechmatics backend, authentication replacement, or desktop auto-updater.
-
-Current feature branch: `feature/orbit-desktop-companion`.
-
-See [Orbit architecture](docs/ORBIT_ARCHITECTURE.md), [deployment instructions](docs/DEPLOYMENT.md), and [contribution guidelines](CONTRIBUTING.md) for additional detail.
 
 ## Security notes
 
-- Never place Speechmatics or backend API secrets in `desktop-config.json` or client-side environment variables.
-- Issue temporary Speechmatics tokens from a server-side endpoint.
+- The Speechmatics API key stays server-side. The browser receives a JWT that
+  expires in two minutes, minted by `/api/speech/token`.
+- Row level security is the real boundary on user data; the `user_id` filters in
+  the services are defence in depth.
+- Never put secrets in `desktop-config.json` — it ships inside the download.
 - Keep Electron context isolation and sandboxing enabled.
-- Validate backend action URLs and authorization on the server.
+- The native.builder window has no bridge back into Orbit.
 
 ## License
 
-No open-source license has been declared. All rights remain with the repository owners unless a license is added.
+No open-source license has been declared. All rights remain with the repository
+owners unless a license is added.

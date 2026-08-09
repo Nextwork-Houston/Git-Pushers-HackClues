@@ -1,0 +1,62 @@
+name: Verify
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+concurrency:
+  group: verify-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  web:
+    name: Web app
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: npm
+
+      - run: npm ci
+
+      - name: Type check
+        run: npm run typecheck
+
+      - name: Unit tests
+        run: npm test
+
+      # public/orbit is a published copy of orbit/. If someone edited the copy
+      # directly, the next sync would silently revert their change.
+      - name: Orbit assets are in sync
+        run: npm run sync:orbit:check
+
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_SUPABASE_URL: https://example.supabase.co
+          NEXT_PUBLIC_SUPABASE_ANON_KEY: build-time-placeholder
+
+  desktop:
+    name: Desktop shell
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+
+      - name: Syntax check the Electron sources
+        working-directory: orbit
+        run: |
+          node --check desktop/main.js
+          node --check desktop/preload.js
+          node --check desktop/builder-preload.js
+          node --check desktop/builder-window.js
+          node --check desktop/desktop.js
+          node --check avatar-companion.js
+          node --check speech-bridge.js

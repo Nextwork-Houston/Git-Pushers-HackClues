@@ -1,46 +1,139 @@
 # Orbit Architecture
 
-## Overview
+## What this is
 
-Orbit is divided into three layers so the same character can be used inside the web application, on a static showcase, and as a desktop companion.
+Roisin is a voice companion that turns spoken intent into working software by
+driving [native.builder](https://builder.nativelyai.com), an AI software
+factory. You talk; she listens, works out what you actually want, writes a
+precise build instruction, and puts it into native.builder for you.
+
+## The constraint that shapes everything
+
+**native.builder has no public API.** It is a chat-driven web product. Its only
+programmatic surface is one-way GitHub Sync, which pushes Builder's files out to
+a repository and never accepts anything back.
+
+So Roisin cannot call native.builder. She has to *use* it, the way a person
+does. That is why the desktop shell hosts native.builder in a real window and
+types into its chat box, and why the browser build falls back to handing you the
+instruction to paste.
+
+Everything Roisin does inside that window is something you could do by typing,
+using your own logged-in session. The window is always visible — automation you
+cannot see is automation you cannot stop.
 
 ## Layers
 
-### Avatar component
+### Avatar component — `orbit/avatar-companion.js`
 
-`orbit/avatar-companion.js` is a dependency-free Web Component. It owns:
+A dependency-free Web Component. It owns sprite animation and state
+transitions, chat presentation, colour selection, action dispatch, and the
+waiting performances. It emits events; it never decides policy.
 
-- Sprite atlas animation and state transitions.
-- Chat presentation and transcript rendering.
-- Color selection and preference persistence.
-- Backend action dispatch and waiting performances.
-- Public events for activation, chat visibility, animation, skin changes, and action results.
+### Speech bridge — `orbit/speech-bridge.js`
 
-### Web showcase
+Also dependency-free, so the same file runs in the Next app, the static
+showcase, and the Electron renderer without a bundler. It tries three
+transports in order and emits identical events whichever one wins:
 
-`public/orbit/demo.html` demonstrates the component without requiring authentication. Vercel rewrites `/orbit` to this static page. The static implementation intentionally mirrors the component source in `orbit/` so the showcase remains portable.
+| Transport | What it gives | When it runs |
+| --- | --- | --- |
+| Speechmatics Flow | transcripts plus a spoken agent reply | when a Flow token is available |
+| Speechmatics Realtime | transcripts only | when Flow is unavailable |
+| Web Speech API | transcripts only, browser quality | when Speechmatics cannot be reached |
 
-### Desktop shell
+Events: `speech.start`, `speechmatics.partial`, `speechmatics.final`,
+`speech.reply`, `speech.transport`, `speech.error`, `speech.end`.
 
-`orbit/desktop/` wraps the component in Electron. The main process manages window position, scale, drag movement, always-on-top behavior, transparent click-through regions, and application lifecycle. The preload script exposes a narrow IPC bridge; Node integration remains disabled in the renderer.
+Both Speechmatics transports need a short-lived JWT from `/api/speech/token`,
+which requires a session. The public showcase therefore lands on the browser
+engine, and the signed-in companion upgrades automatically.
 
-## Animation model
+### Next application — `app/`
 
-Each atlas contains a four-column by four-row grid. The renderer uses exact pixel offsets to prevent neighboring-frame bleed. Idle remains on frame zero; active expressions and actions advance through four frames at animation-specific rates.
+| Route | Purpose |
+| --- | --- |
+| `/` | redirects to the showcase |
+| `/orbit` | public showcase, no sign-in |
+| `/login` | username and password, backed by Supabase |
+| `/companion` | signed-in companion with the XP meter |
+| `/api/speech/token` | mints short-lived Speechmatics JWTs |
+| `/api/conversation` | Roisin's reasoning and history persistence |
+| `/api/system/health` | reports which services are configured |
+| `/api/github/commit` | writes a file through the GitHub App |
+
+`proxy.ts` (Next 16 renamed `middleware` to `proxy`) guards the HTML routes.
+API routes are excluded from it so they answer `401` JSON instead of
+redirecting.
+
+### Desktop shell — `orbit/desktop/`
+
+Two windows:
+
+- **Roisin** — frameless, transparent, always on top, click-through except over
+  her and her panels. Node integration off, context isolation on.
+- **native.builder** — a normal visible window on a persistent session
+  partition, so you sign in once. Its preload deliberately exposes nothing;
+  Roisin drives it from the main process with `executeJavaScript`, so the
+  third-party page has no bridge back into Orbit.
 
 ## Conversation flow
 
-1. The user clicks Orbit or Speechmatics emits a transcript event.
-2. Orbit opens chat and enters `listening`.
-3. Partial transcripts update the live user message.
-4. Final transcripts are committed to chat.
-5. If `conversationUrl` is configured, Orbit starts a waiting performance while the backend responds.
-6. The assistant reply appears and Orbit transitions through speaking to idle.
+1. You press the mic. The bridge picks a transport.
+2. Partial transcripts stream into the chat as you speak.
+3. A final transcript is posted to `/api/conversation`.
+4. Roisin's model returns `{ say, action, builderPrompt, mood }`.
+5. She says her line. History is appended server-side; the client can never
+   rewrite what was said earlier.
+6. If there is a `builderPrompt`, the main process types it into
+   native.builder and submits it. In the browser, it is shown and copied
+   instead.
+7. XP is awarded — more for a build than for chat — and the meter moves.
+
+## Driving someone else's interface
+
+`orbit/desktop/builder-window.js` finds the chat composer by configured
+selector first, then by heuristic: the largest visible `textarea`,
+`[contenteditable]`, or `[role=textbox]`. It sets the value through the native
+property setter, because React ignores a plain `.value` assignment, then clicks
+a send button or presses Enter.
+
+This is inherently fragile — it depends on markup that belongs to someone else.
+`builderSelectors` in `desktop-config.json` exists so a DOM change can be fixed
+by editing config rather than shipping a new build.
+
+The prompt is user speech spliced into a script that runs in a third-party page,
+so it is serialised through `literal()`, which escapes `<`, `>`, and the Unicode
+line separators on top of JSON's own quoting. `tests/builder-window.test.ts`
+evaluates the generated literal to prove the prompt survives as inert data.
+
+## Data model
+
+Three owner-scoped tables, all under row level security
+(`supabase/migrations/0001_init.sql`):
+
+- `profiles` — one row per auth user, holds the username
+- `pets` — the companion: name, XP, mood, sprite sheet
+- `conversations` — one message log per pet, `user_id` denormalised so policies
+  need no subquery
+
+A trigger provisions a pet and an empty conversation on sign-up, so a signed-in
+user always has something to talk to.
+
+## Source layout
+
+`orbit/` is the source of truth. `public/orbit/` is a published copy so the
+static showcase and the Next app can serve the same files without a bundler.
+`npm run sync:orbit` regenerates the copy and CI fails if it is stale — editing
+the copy directly is how the two drift apart.
 
 ## Security boundaries
 
-- Renderer code has no direct Node.js access.
-- IPC methods are explicitly allow-listed in `preload.js`.
-- API secrets must remain server-side.
-- Downloaded installers contain source and assets, not credentials.
-
+- The Speechmatics API key never leaves the server; the browser gets a JWT that
+  expires in two minutes.
+- Row level security is the real boundary on Supabase data; the `user_id`
+  filters in the services are defence in depth and better error messages.
+- The renderer has no Node access; IPC methods are allow-listed in `preload.js`.
+- The native.builder window cannot reach Orbit, Electron, or your Speechmatics
+  and Supabase sessions.
+- Downloaded installers contain source and assets, never credentials.

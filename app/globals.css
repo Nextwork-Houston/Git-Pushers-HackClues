@@ -1,0 +1,311 @@
+/**
+ * Orbit application shell.
+ *
+ * The public showcase at /orbit/demo.html carries its own styling; this sheet
+ * covers the authenticated surfaces only. Both share the same palette so the
+ * jump from marketing to product does not feel like a different product.
+ */
+
+:root {
+  color-scheme: dark;
+
+  --surface-void: oklch(16% 0.03 285);
+  --surface-deep: oklch(21% 0.04 285);
+  --surface-raised: oklch(26% 0.045 285);
+  --surface-line: oklch(38% 0.04 285);
+
+  --text-bright: oklch(97% 0.01 285);
+  --text-muted: oklch(74% 0.02 285);
+  --text-faint: oklch(60% 0.02 285);
+
+  --accent-rose: oklch(72% 0.19 5);
+  --accent-glow: oklch(80% 0.16 5);
+  --accent-cool: oklch(74% 0.15 250);
+  --danger: oklch(68% 0.19 25);
+
+  --radius-sm: 0.5rem;
+  --radius-md: 0.9rem;
+  --radius-lg: 1.5rem;
+
+  --duration-fast: 140ms;
+  --duration-normal: 280ms;
+  --ease-out-expo: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --font-body:
+    ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+  --font-mono: ui-monospace, 'Cascadia Code', 'SF Mono', Menlo, monospace;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  padding: 0;
+  min-height: 100%;
+}
+
+body {
+  background:
+    radial-gradient(
+      ellipse 90% 60% at 50% -10%,
+      oklch(30% 0.09 330 / 0.55),
+      transparent 70%
+    ),
+    var(--surface-void);
+  color: var(--text-bright);
+  font-family: var(--font-body);
+  -webkit-font-smoothing: antialiased;
+}
+
+/* ---------------------------------------------------------------- auth --- */
+
+.auth-page {
+  display: grid;
+  place-items: center;
+  min-height: 100dvh;
+  padding: 2rem 1.25rem;
+}
+
+.auth-card {
+  width: min(26rem, 100%);
+  padding: clamp(1.75rem, 1rem + 3vw, 2.75rem);
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
+  background: linear-gradient(
+    170deg,
+    var(--surface-raised),
+    var(--surface-deep)
+  );
+  box-shadow:
+    0 1px 0 oklch(100% 0 0 / 0.06) inset,
+    0 30px 60px -30px oklch(0% 0 0 / 0.9);
+}
+
+.auth-eyebrow {
+  margin: 0;
+  font-size: 0.72rem;
+  font-weight: 600;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+  color: var(--accent-rose);
+}
+
+.auth-header h1 {
+  margin: 0.6rem 0 0.5rem;
+  font-size: clamp(1.75rem, 1.2rem + 2vw, 2.25rem);
+  line-height: 1.1;
+  letter-spacing: -0.02em;
+}
+
+.auth-lede {
+  margin: 0 0 1.75rem;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.auth-form {
+  display: grid;
+  gap: 1rem;
+}
+
+.auth-field {
+  display: grid;
+  gap: 0.4rem;
+}
+
+.auth-field span {
+  font-size: 0.8rem;
+  font-weight: 600;
+  color: var(--text-muted);
+}
+
+.auth-field input {
+  padding: 0.7rem 0.85rem;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
+  background: oklch(14% 0.02 285 / 0.8);
+  color: var(--text-bright);
+  font: inherit;
+  font-size: 0.95rem;
+  transition: border-color var(--duration-fast) ease;
+}
+
+.auth-field input::placeholder {
+  color: var(--text-faint);
+}
+
+.auth-field input:focus-visible {
+  outline: none;
+  border-color: var(--accent-rose);
+  box-shadow: 0 0 0 3px oklch(72% 0.19 5 / 0.2);
+}
+
+.auth-error {
+  margin: 0;
+  padding: 0.6rem 0.75rem;
+  border-left: 2px solid var(--danger);
+  border-radius: 0 var(--radius-sm) var(--radius-sm) 0;
+  background: oklch(30% 0.09 25 / 0.28);
+  color: oklch(88% 0.08 25);
+  font-size: 0.86rem;
+}
+
+.auth-submit {
+  margin-top: 0.35rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: var(--radius-sm);
+  background: linear-gradient(135deg, var(--accent-glow), var(--accent-rose));
+  color: oklch(18% 0.05 5);
+  font: inherit;
+  font-weight: 700;
+  cursor: pointer;
+  transition:
+    transform var(--duration-fast) var(--ease-out-expo),
+    filter var(--duration-fast) ease;
+}
+
+.auth-submit:hover:not(:disabled) {
+  transform: translateY(-1px);
+  filter: brightness(1.08);
+}
+
+.auth-submit:disabled {
+  opacity: 0.6;
+  cursor: progress;
+}
+
+.auth-switch {
+  padding: 0.4rem;
+  border: none;
+  background: none;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 3px;
+  cursor: pointer;
+}
+
+.auth-switch:hover {
+  color: var(--text-bright);
+}
+
+/* ----------------------------------------------------------- companion --- */
+
+.companion-page {
+  display: grid;
+  grid-template-rows: auto 1fr;
+  gap: 1.5rem;
+  min-height: 100dvh;
+  padding: clamp(1.25rem, 0.75rem + 2vw, 2.5rem);
+}
+
+.companion-bar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 1rem 1.5rem;
+  padding: 1rem 1.25rem;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-md);
+  background: var(--surface-deep);
+}
+
+.companion-identity {
+  display: grid;
+  gap: 0.15rem;
+  margin-right: auto;
+}
+
+.companion-identity strong {
+  font-size: 1.15rem;
+  letter-spacing: -0.01em;
+}
+
+.companion-identity span {
+  color: var(--text-faint);
+  font-size: 0.82rem;
+}
+
+.xp-meter {
+  display: grid;
+  gap: 0.35rem;
+  min-width: 14rem;
+}
+
+.xp-meter-label {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  font-size: 0.78rem;
+  color: var(--text-muted);
+}
+
+.xp-meter-track {
+  height: 0.5rem;
+  border-radius: 999px;
+  background: oklch(14% 0.02 285);
+  overflow: hidden;
+}
+
+.xp-meter-fill {
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--accent-cool), var(--accent-rose));
+  transition: width var(--duration-normal) var(--ease-out-expo);
+}
+
+.companion-signout {
+  padding: 0.5rem 0.9rem;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-sm);
+  background: transparent;
+  color: var(--text-muted);
+  font: inherit;
+  font-size: 0.85rem;
+  cursor: pointer;
+  transition: color var(--duration-fast) ease, border-color var(--duration-fast) ease;
+}
+
+.companion-signout:hover {
+  color: var(--text-bright);
+  border-color: var(--accent-rose);
+}
+
+.companion-stage {
+  display: grid;
+  place-items: center;
+  padding: 2rem 1rem;
+  border: 1px solid var(--surface-line);
+  border-radius: var(--radius-lg);
+  background:
+    radial-gradient(
+      ellipse 60% 50% at 50% 100%,
+      oklch(32% 0.1 330 / 0.4),
+      transparent 70%
+    ),
+    var(--surface-deep);
+}
+
+.companion-hint {
+  max-width: 34ch;
+  margin: 1.5rem 0 0;
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.55;
+  text-align: center;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

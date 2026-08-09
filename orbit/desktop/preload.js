@@ -13,6 +13,8 @@ contextBridge.exposeInMainWorld("orbitDesktop", {
   startDrag: (x, y) => ipcRenderer.send("orbit:drag-start", { x, y }),
   dragTo: (x, y) => ipcRenderer.send("orbit:drag-move", { x, y }),
   endDrag: () => ipcRenderer.send("orbit:drag-end"),
+  openBuilder: () => ipcRenderer.invoke("orbit:open-builder"),
+  sendToBuilder: (prompt) => ipcRenderer.invoke("orbit:send-to-builder", String(prompt ?? "")),
   showMenu: () => ipcRenderer.send("orbit:show-menu"),
   quit: () => ipcRenderer.send("orbit:quit"),
 });

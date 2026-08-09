@@ -356,6 +356,7 @@
   </dialog>
 
   <script src="./avatar-companion.js"></script>
+  <script src="./speech-bridge.js"></script>
   <script>
     const orbit = document.querySelector('#orbit');
     const waitingMixButton = document.querySelector('#waiting-mix');
@@ -454,10 +455,10 @@
       deferredInstallPrompt = null;
       document.body.dataset.installed = 'true';
     });
+    // Only endpoints that actually exist are listed. The showcase is public,
+    // so anything requiring a session is left to the signed-in companion.
     orbit.actions = [
-      { id: 'health', label: 'System health', icon: 'pulse', url: '/api/system/health', method: 'GET' },
-      { id: 'memory', label: 'Save conversation', icon: 'memory', url: '/api/memory', body: { source: 'orbit' } },
-      { id: 'workflow', label: 'Run daily workflow', icon: 'spark', url: '/api/workflows/daily' }
+      { id: 'health', label: 'System health', icon: 'pulse', url: '/api/system/health', method: 'GET' }
     ];
 
     document.querySelectorAll('[data-state]').forEach((button) => {
@@ -521,8 +522,56 @@
       orbit.scrollIntoView({ behavior: 'smooth', block: 'center' });
     });
 
-    orbit.addEventListener('speech-toggle-request', (event) => {
-      orbit.setState(event.detail.active ? 'listening' : 'idle');
+    // Live microphone on the public showcase.
+    //
+    // The Speechmatics transports need a signed-in session to mint a token, so
+    // here the bridge falls through to the browser's own speech engine. Signed
+    // in at /companion the same bridge upgrades to Speechmatics automatically.
+    let showcaseBridge = null;
+
+    orbit.addEventListener('speech-toggle-request', async (event) => {
+      if (!event.detail.active) {
+        if (showcaseBridge) {
+          showcaseBridge.stop();
+          showcaseBridge = null;
+        }
+        orbit.setState('idle');
+        return;
+      }
+
+      if (!window.OrbitSpeechBridge) {
+        orbit.addMessage('Speech did not load. Reload the page and try again.', 'assistant');
+        return;
+      }
+
+      orbit.setState('listening');
+      showcaseBridge = new window.OrbitSpeechBridge({ tokenUrl: '/api/speech/token' });
+
+      try {
+        await showcaseBridge.start();
+      } catch {
+        showcaseBridge = null;
+        orbit.setState('idle');
+        orbit.addMessage(
+          'I need microphone access to listen. Allow it in your browser, then try again.',
+          'assistant'
+        );
+      }
+    });
+
+    window.addEventListener('speechmatics.partial', (event) => {
+      orbit.setTranscript(event.detail.text, { role: 'user' });
+    });
+
+    window.addEventListener('speechmatics.final', (event) => {
+      if (!event.detail.text) return;
+      orbit.setTranscript(event.detail.text, { role: 'user', final: true });
+      orbit.setState('speaking');
+      orbit.addMessage(
+        'Heard you. Sign in to the companion and I will turn that into a native.builder instruction.',
+        'assistant'
+      );
+      setTimeout(() => orbit.setState('idle'), 1600);
     });
 
     orbit.addEventListener('avatar-action', (event) => {

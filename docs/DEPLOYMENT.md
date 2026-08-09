@@ -2,45 +2,66 @@
 
 ## Vercel
 
-### Dashboard deployment
-
-1. Import `Nextwork-Houston/Git-Pushers-HackClues` into Vercel.
-2. Select the Next.js framework preset.
-3. Keep the repository root as the project root.
-4. Use `npm install` and `npm run build`.
-5. Deploy the `feature/orbit-desktop-companion` branch for a preview URL.
-
-The repository-level `vercel.json` exposes `/orbit` publicly and adds download headers for files under `/orbit/downloads/`.
-
-### CLI deployment
+The project is linked as `git-pushers-hackclues-orbit`. Pushing to `main`
+deploys production; any other branch gets a preview URL.
 
 ```bash
-npx vercel
-npx vercel --prod
+npx vercel          # preview
+npx vercel --prod   # production
 ```
 
-Use a preview deployment for branch review. Promote to production only after the pull request is approved.
+`vercel.json` exposes `/orbit` publicly and sets download and service-worker
+headers.
+
+### Environment variables
+
+The API routes will not work in production until these are set in the Vercel
+project. Without them the routes answer `503` and Roisin cannot reply, even
+though the showcase page still loads.
+
+| Variable | Consequence if missing |
+| --- | --- |
+| `NEXT_PUBLIC_SUPABASE_URL` | sign-in fails |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | sign-in fails |
+| `SPEECHMATICS_API_KEY` | `/api/speech/token` returns 503; speech drops to the browser engine |
+| `SPEECHMATICS_FLOW_TEMPLATE_ID` | Flow falls back to the default template |
+| `LLM_API_KEY` | `/api/conversation` returns 502; Roisin cannot think |
+| `LLM_BASE_URL`, `LLM_MODEL` | defaults are used |
+| `GITHUB_APP_ID`, `GITHUB_APP_PRIVATE_KEY` | `/api/github/commit` fails |
+
+Paste `GITHUB_APP_PRIVATE_KEY` as the full `.pem` contents, BEGIN and END lines
+included.
+
+Check the result at `GET /api/system/health`, which reports which services are
+configured without revealing any values.
+
+## Database
+
+Apply `supabase/migrations/0001_init.sql` to the Supabase project before the
+first sign-in. It creates the tables, enables row level security, and adds the
+trigger that provisions a companion for every new account.
+
+Applying it is safe to repeat; the statements are written to be idempotent.
 
 ## Desktop release bundle
 
-The hosted ZIP files contain the Electron source, component assets, and operating-system installers. Rebuild a ZIP whenever any file in `orbit/desktop`, the sprite atlases, or an installer script changes.
+The hosted ZIP files contain the Electron source, component assets, and the
+per-platform install scripts. Rebuild whenever anything in `orbit/` changes —
+including `speech-bridge.js` and the desktop config — or downloaded copies will
+keep the old behaviour.
 
-Platform-specific signed packages should be produced in CI on their native operating systems:
-
-- Windows: signed installer on Windows.
-- macOS: signed and notarized application on macOS.
-- Linux: AppImage or distribution package on Linux.
-
-The current hackathon download is a source installer. It installs Electron locally with npm on first launch.
+Signed packages should be produced in CI on their native operating systems:
+Windows for the signed installer, macOS for the notarized app, Linux for the
+AppImage or distribution package.
 
 ## Verification checklist
 
-- `/orbit` loads without authentication.
-- Both download links return `200` responses.
-- Idle remains visually stable.
-- Clicking Orbit opens chat.
-- Dragging moves the desktop window without activating chat.
-- Size controls persist after restart.
-- Speechmatics partial and final events appear in chat.
-- `npm run build` and `npm audit` complete successfully.
-
+- `npm run verify` passes.
+- `/orbit` loads without signing in and the microphone button transcribes.
+- `/login` accepts a new account and lands on `/companion`.
+- `/companion` shows the XP meter and Roisin replies to speech.
+- Both download links return `200`.
+- Dragging the desktop avatar moves the window without opening chat.
+- Size and position survive a restart.
+- Asking for a build opens native.builder and types the instruction into it.
+- `GET /api/system/health` reports `ok`.

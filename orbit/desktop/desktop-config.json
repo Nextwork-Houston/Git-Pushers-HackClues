@@ -2,9 +2,22 @@
   "launchAtStartup": false,
   "aliveMode": true,
   "aliveInterval": 3200,
-  "skin": "electric",
+  "skin": "pink",
   "language": "en-US",
-  "browserSpeechFallback": false,
-  "conversationUrl": "",
-  "actions": []
+  "browserSpeechFallback": true,
+  "conversationUrl": "https://git-pushers-hackclues-orbit.vercel.app/api/conversation",
+  "speechTokenUrl": "https://git-pushers-hackclues-orbit.vercel.app/api/speech/token",
+  "builderUrl": "https://builder.nativelyai.com",
+  "builderSelectors": {
+    "input": "",
+    "send": ""
+  },
+  "actions": [
+    {
+      "id": "open-builder",
+      "label": "Open native.builder",
+      "icon": "spark",
+      "desktopAction": "open-builder"
+    }
+  ]
 }

@@ -2,10 +2,9 @@
 
 const orbit = document.querySelector("#orbit");
 const desktopShell = document.querySelector(".desktop-shell");
-let recognition;
+let speechBridge = null;
 let recognitionActive = false;
 let config = {};
-let speechBridgePromptShown = false;
 let orbitScale = Number(localStorage.getItem("orbit-desktop-scale")) || 1;
 let dragged = false;
 let suppressActivation = false;
@@ -36,21 +35,47 @@ function transcriptText(message) {
   return message?.detail?.text ?? message?.detail?.transcript ?? "";
 }
 
+/**
+ * Sends a finished transcript to Roisin's backend and acts on what she says.
+ *
+ * When she returns a builderPrompt, the main process types it into the
+ * native.builder window on the user's behalf. That window is visible, so the
+ * user always sees what was sent.
+ */
 async function sendConversation(text) {
-  if (!config.conversationUrl) return;
+  if (!config.conversationUrl) {
+    orbit.addMessage(
+      "I am not connected to a backend yet. Set conversationUrl in desktop-config.json.",
+      "assistant",
+    );
+    return;
+  }
+
   pauseAliveMode();
   orbit.startWaiting({ openChat: true });
+
   try {
     const response = await fetch(config.conversationUrl, {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ text }),
     });
-    if (!response.ok) throw new Error(`Conversation backend returned ${response.status}.`);
-    const result = await response.json();
+
+    const result = await response.json().catch(() => ({}));
+
+    if (!response.ok) {
+      throw new Error(result.error || `Conversation backend returned ${response.status}.`);
+    }
+
     const reply = result.reply || result.message || result.text;
     orbit.stopWaiting({ state: "speaking" });
     if (reply) orbit.addMessage(reply, "assistant");
+
+    if (result.builderPrompt) {
+      await deliverToBuilder(result.builderPrompt);
+    }
+
     setTimeout(() => {
       orbit.setState("idle");
       scheduleAliveMode(500);
@@ -63,56 +88,72 @@ async function sendConversation(text) {
   }
 }
 
-function setupBrowserSpeech() {
-  const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-  if (!Recognition) return null;
-  const engine = new Recognition();
-  engine.continuous = true;
-  engine.interimResults = true;
-  engine.lang = config.language || "en-US";
-  engine.onresult = (event) => {
-    let partial = "";
-    for (let index = event.resultIndex; index < event.results.length; index += 1) {
-      const result = event.results[index];
-      const text = result[0]?.transcript || "";
-      if (result.isFinal) {
-        orbit.setTranscript(text, { final: true, role: "user" });
-        sendConversation(text);
-      } else partial += text;
-    }
-    if (partial) orbit.setTranscript(partial, { role: "user" });
-  };
-  engine.onerror = (event) => {
-    if (event.error !== "aborted") orbit.addMessage(`Microphone error: ${event.error}.`, "assistant");
-  };
-  engine.onend = () => {
-    if (recognitionActive) {
-      try { engine.start(); }
-      catch {}
-    }
-  };
-  return engine;
+async function deliverToBuilder(prompt) {
+  if (!window.orbitDesktop.sendToBuilder) return false;
+
+  orbit.playAction("celebrate", { duration: 1800 });
+  const outcome = await window.orbitDesktop.sendToBuilder(prompt);
+
+  if (outcome && outcome.ok) {
+    orbit.addMessage("Sent it to native.builder. Watch it work.", "assistant");
+    return true;
+  }
+
+  const reason = outcome && outcome.reason === "no-composer"
+    ? "I could not find the chat box on native.builder. Sign in there first, then ask me again."
+    : "I could not hand that to native.builder, so here it is to paste in yourself.";
+
+  orbit.addMessage(reason, "assistant");
+  orbit.addMessage(prompt, "assistant");
+  return false;
 }
 
-function startListening() {
+/**
+ * Starts listening through Speechmatics.
+ *
+ * The bridge picks its own transport — Flow, then Realtime, then the browser
+ * engine — and emits the same `speechmatics.*` events whichever one wins, so
+ * nothing below needs to know which is live.
+ */
+async function startListening() {
   pauseAliveMode();
   orbit.openChat();
   orbit.setState("listening");
   recognitionActive = true;
-  if (!recognition) {
-    if (!speechBridgePromptShown) {
-      orbit.addMessage("I’m listening. Your Speechmatics connection can send transcripts now.", "assistant");
-      speechBridgePromptShown = true;
-    }
+
+  if (speechBridge) return;
+
+  if (!window.OrbitSpeechBridge) {
+    orbit.addMessage("My speech bridge did not load. Restart me and try again.", "assistant");
     return;
   }
-  try { recognition.start(); }
-  catch {}
+
+  speechBridge = new window.OrbitSpeechBridge({
+    tokenUrl: config.speechTokenUrl || "",
+    language: (config.language || "en-US").split("-")[0],
+    // Flow speaks its own replies, which would talk over the backend's, so
+    // the desktop shell uses transcription only.
+    preferFlow: false,
+    allowBrowserFallback: config.browserSpeechFallback !== false,
+  });
+
+  try {
+    await speechBridge.start();
+  } catch (error) {
+    speechBridge = null;
+    recognitionActive = false;
+    orbit.addMessage(`I could not start listening: ${error.message}`, "assistant");
+    orbit.setState("idle");
+    scheduleAliveMode();
+  }
 }
 
 function stopListening() {
   recognitionActive = false;
-  if (recognition) recognition.stop();
+  if (speechBridge) {
+    speechBridge.stop();
+    speechBridge = null;
+  }
   orbit.setState("idle");
   scheduleAliveMode();
 }
@@ -123,8 +164,13 @@ window.addEventListener("speechmatics.partial", (event) => {
 
 window.addEventListener("speechmatics.final", (event) => {
   const text = transcriptText(event);
+  if (!text) return;
   orbit.setTranscript(text, { final: true, role: "user" });
   sendConversation(text);
+});
+
+window.addEventListener("speech.error", (event) => {
+  orbit.addMessage(`Speech problem: ${event.detail.message}`, "assistant");
 });
 
 orbit.addEventListener("avatar-activate", () => {
@@ -143,6 +189,18 @@ orbit.addEventListener("avatar-menu-change", (event) => {
 
 orbit.addEventListener("speech-toggle-request", (event) => {
   if (!event.detail.active) stopListening();
+});
+
+// Actions marked with a desktopAction are handled here rather than being sent
+// as HTTP requests, so the menu can drive the shell itself.
+orbit.addEventListener("avatar-action", (event) => {
+  const action = event.detail.action;
+  if (!action || action.desktopAction !== "open-builder") return;
+
+  event.preventDefault();
+  orbit.toggleMenu(false);
+  window.orbitDesktop.openBuilder();
+  orbit.addMessage("native.builder is open. Tell me what to build.", "assistant");
 });
 
 orbit.addEventListener("avatar-size-request", (event) => updateScale(orbitScale + event.detail.step * 0.1));
@@ -238,7 +296,6 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   config = loadedConfig || {};
   if (config.skin && !orbit.hasAttribute("skin")) orbit.setSkin(config.skin, { persist: false });
   orbit.actions = Array.isArray(config.actions) ? config.actions : [];
-  recognition = config.browserSpeechFallback ? setupBrowserSpeech() : null;
   updateScale(orbitScale);
   enableDirectDragging();
   enableTransparentClickThrough();

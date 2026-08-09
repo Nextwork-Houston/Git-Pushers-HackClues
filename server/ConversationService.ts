@@ -1,70 +1,111 @@
-"use server"
+'use server'
 
-import { createClient, getUser } from "./server";
+import { randomUUID } from 'node:crypto'
 
-import { Conversation } from "./types";
-import { z } from "zod";
+import {
+  ConversationSchema,
+  type Conversation,
+  type ConversationMessage,
+} from './types'
+import { createClient, getUser } from './server'
 
+/** Keeps the stored history from growing without bound. */
+const MAX_STORED_MESSAGES = 200
 
-export async function getConversationHistory(PET_ID: string): Promise<z.infer<typeof Conversation>>
-{
-    const client = await createClient();
+/**
+ * Reads a pet's conversation.
+ *
+ * The `user_id` filter is deliberate: row level security already blocks other
+ * accounts, but filtering here means a wrong pet id fails as "not found"
+ * rather than leaking the existence of someone else's conversation.
+ */
+export async function getConversationHistory(
+  petId: string,
+): Promise<Conversation> {
+  const user = await getUser()
+  const client = await createClient()
 
-    const { data, error } = await client.from("conversations").select("messages").eq("pet_id", PET_ID).maybeSingle();
+  const { data, error } = await client
+    .from('conversations')
+    .select('pet_id, user_id, messages')
+    .eq('pet_id', petId)
+    .eq('user_id', user.id)
+    .maybeSingle()
 
-    if(error || !data)
-    {
-        console.error(`[CONVERSATION-ERROR]: ${error?.message ?? "NO DATA FETCHED"}`);
-        throw new Error("Error fetching conversation history!");
-    }
+  if (error || !data) {
+    console.error(
+      `[CONVERSATION-ERROR] fetch: ${error?.message ?? 'no conversation found'}`,
+    )
+    throw new Error('Error fetching conversation history!')
+  }
 
-    const conversationHistory = Conversation.safeParse(data);
+  const conversation = ConversationSchema.safeParse(data)
 
-    if(!conversationHistory.success)
-    {
-        console.error(`[CONVERSATION-ERROR (PARSE)]: ${conversationHistory.error}`);
-        throw new Error("Error parsing conversation data to Conversation schema.");
-    }
+  if (!conversation.success) {
+    console.error(`[CONVERSATION-ERROR] parse: ${conversation.error.message}`)
+    throw new Error('Error parsing conversation data to Conversation schema.')
+  }
 
-    return conversationHistory.data;
+  return conversation.data
 }
 
-export async function modifyConversationHistory(input: z.infer<typeof Conversation>): Promise<z.infer<typeof Conversation>>
-{
-    const parsedInput = Conversation.safeParse(input);
+/** Builds a well-formed message ready to be appended to a history. */
+export async function createMessage(
+  role: ConversationMessage['role'],
+  text: string,
+  options: { type?: string; usage?: ConversationMessage['usage'] } = {},
+): Promise<ConversationMessage> {
+  return {
+    id: randomUUID(),
+    role,
+    type: options.type ?? 'text',
+    created_at: new Date(),
+    usage: options.usage,
+    content: [{ content: text, type: 'text' }],
+  }
+}
 
-    if (!parsedInput.success) {
-        console.error(`[CONVERSATION-ERROR]: ${parsedInput.error.message}`);
-        throw new Error("Invalid input passed to conversation history modification!");
-    }
+/**
+ * Appends messages to a pet's history and persists the result.
+ *
+ * Appending server-side rather than accepting a whole history from the client
+ * means a caller can never rewrite or truncate what was said earlier.
+ */
+export async function appendConversationMessages(
+  petId: string,
+  newMessages: ConversationMessage[],
+): Promise<Conversation> {
+  if (newMessages.length === 0) {
+    throw new Error('No messages provided to append.')
+  }
 
-    const { pet_id, ...updates } = parsedInput.data;
+  const user = await getUser()
+  const existing = await getConversationHistory(petId)
+  const messages = [...existing.messages, ...newMessages].slice(
+    -MAX_STORED_MESSAGES,
+  )
 
-    if (Object.keys(updates).length === 0) {
-        throw new Error("No fields provided to update.");
-    }
+  const client = await createClient()
 
-    const user = await getUser();
-    const client = await createClient();
+  const { data, error } = await client
+    .from('conversations')
+    .update({ messages })
+    .eq('pet_id', petId)
+    .eq('user_id', user.id)
+    .select('pet_id, user_id, messages')
+    .maybeSingle()
 
-    const { data, error } = await client
-    .from("conversations")
-    .update(updates)
-    .eq("pet_id", pet_id)
-    .select()
-    .maybeSingle();
+  if (error || !data) {
+    console.error(`[CONVERSATION-ERROR] update: ${error?.message}`)
+    throw new Error('Something went wrong while saving the conversation!')
+  }
 
-    if (error || !data) {
-        console.error(`[CONVERSATION-ERROR]: ${error?.message}`);
-        throw new Error("Something went wrong while modifying conversation in Conversations!");
-    }
+  const conversation = ConversationSchema.safeParse(data)
 
-    const conversation = Conversation.safeParse(data);
+  if (!conversation.success) {
+    console.error(`[CONVERSATION-ERROR] parse: ${conversation.error.message}`)
+    throw new Error('Something went wrong parsing the saved conversation!')
+  }
 
-    if (!conversation.success) {
-        console.error(`[CONVERSATION-ERROR]: ${conversation.error.message}`);
-        throw new Error("Something went wrong parsing conversation response to Conversation Schema!");
-    }
-
-    return conversation.data;
+  return conversation.data
 }

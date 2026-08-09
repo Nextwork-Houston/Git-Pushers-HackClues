@@ -27,3 +27,6 @@ dist-ssr
 .env*
 /tmp/
 public/orbit/downloads/Orbit-Setup-*.exe
+
+# TypeScript incremental build info
+tsconfig.tsbuildinfo
