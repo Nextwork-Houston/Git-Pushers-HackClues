@@ -221,6 +221,10 @@ function createWindow() {
 function showDesktopMenu() {
   if (!orbitWindow) return;
   Menu.buildFromTemplate([
+    // Shown because a stale install is indistinguishable from a broken one:
+    // an old copy silently lacks whole features and looks like a bug instead.
+    { label: `Orbit ${app.getVersion()}`, enabled: false },
+    { type: "separator" },
     { label: "Show Orbit", click: showOrbit },
     { label: "Hide Orbit", click: () => orbitWindow.hide() },
     {

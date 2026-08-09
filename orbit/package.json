@@ -2,7 +2,7 @@
   "name": "orbit-desktop",
   "productName": "Orbit",
   "desktopName": "ai.orbit.Orbit.desktop",
-  "version": "1.0.1",
+  "version": "1.1.0",
   "private": true,
   "description": "Always-available, voice-ready AI desktop companion",
   "homepage": "https://git-pushers-hackclues-orbit.vercel.app/orbit/demo.html",
@@ -55,7 +55,9 @@
       "target": [
         {
           "target": "nsis",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     },
@@ -78,7 +80,10 @@
       "target": [
         {
           "target": "dmg",
-          "arch": ["x64", "arm64"]
+          "arch": [
+            "x64",
+            "arm64"
+          ]
         }
       ]
     },
@@ -96,11 +101,15 @@
       "target": [
         {
           "target": "AppImage",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         },
         {
           "target": "deb",
-          "arch": ["x64"]
+          "arch": [
+            "x64"
+          ]
         }
       ]
     }

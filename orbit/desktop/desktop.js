@@ -449,6 +449,15 @@ window.orbitDesktop.getConfig().then((loadedConfig) => {
   enableTransparentClickThrough();
   startAliveMode();
 
+  // Announce the build once. A stale install is otherwise invisible and looks
+  // exactly like the current one failing.
+  window.orbitDesktop
+    .getAppInfo()
+    .then((info) => {
+      if (info && info.version) console.info(`Orbit desktop ${info.version}`);
+    })
+    .catch(() => {});
+
   refreshConnection();
   setInterval(refreshConnection, CONNECTION_POLL_MS);
 });
