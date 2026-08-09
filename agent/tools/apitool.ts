@@ -104,4 +104,4 @@ async function run() {
   }
 }
 
-run();
+if (process.argv[1]?.includes("agent/tools/apitool")) void run();
