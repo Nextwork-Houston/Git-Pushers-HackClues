@@ -56,6 +56,9 @@
       love: bundledAsset("orbit-actions-love-pink.png"),
     },
   };
+  /** Treat the reader as following if within this many pixels of the end. */
+  const FOLLOW_THRESHOLD_PX = 48;
+
   const DEFAULT_WAITING_ACTIONS = ["thinking", "dance", "skipping", "lazy", "airguitar", "moonwalk", "belly", "backflip", "kiss", "lovestruck"];
   const SKINS = {
     classic: {
@@ -1106,6 +1109,15 @@
     _renderMessages() {
       if (!this.$) return;
       const container = this.$(".messages");
+
+      // Whether to follow new messages is decided before the list is rebuilt.
+      // Scrolling to the bottom unconditionally made the history unreadable:
+      // a partial transcript arrives every few hundred milliseconds while
+      // someone is speaking, and each one yanked them back down.
+      const distanceFromBottom =
+        container.scrollHeight - container.scrollTop - container.clientHeight;
+      const wasFollowing = distanceFromBottom <= FOLLOW_THRESHOLD_PX;
+
       container.replaceChildren();
       const messages = this._messages.length ? this._messages : [{ text: "Say hello whenever you’re ready.", role: "assistant" }];
       messages.forEach((message) => container.append(this._messageNode(message)));
@@ -1124,7 +1136,10 @@
         waiting.innerHTML = 'Still working <span class="listening-bars" aria-hidden="true"><i></i><i></i><i></i></span>';
         container.append(waiting);
       }
-      requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+      // Someone who has scrolled up is reading; leave them where they are.
+      if (wasFollowing) {
+        requestAnimationFrame(() => { container.scrollTop = container.scrollHeight; });
+      }
     }
 
     _messageNode(message) {

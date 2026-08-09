@@ -640,8 +640,12 @@
           orbit.playAction('dance', { duration: 1800 });
           orbit.addMessage(payload.builderPrompt, 'assistant');
           navigator.clipboard?.writeText(payload.builderPrompt).catch(() => {});
+          // native.builder sends x-frame-options: SAMEORIGIN, so a browser
+          // cannot host it beside her. Opening a tab is the most the web can
+          // do — the desktop app is what actually types into it.
+          window.open('https://builder.nativelyai.com/', '_blank', 'noopener');
           orbit.addMessage(
-            'Copied. Paste it into native.builder, or install the desktop app and I will type it in for you.',
+            'I opened native.builder and copied the instruction — paste it in. Install the desktop app and I will type it in for you instead.',
             'assistant'
           );
 
