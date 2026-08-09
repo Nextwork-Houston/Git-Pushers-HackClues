@@ -67,7 +67,7 @@ const AgentState = new StateSchema({
 
 const callModel: GraphNode<typeof AgentState> = async (state) => {
 
-    console.log("Callin model...");
+    console.log("Calling model...");
 
     const response = await aiModel.chat.completions.create({
         model: state.model,
